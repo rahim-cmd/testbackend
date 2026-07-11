@@ -1,0 +1,12 @@
+{
+  "name": "express",
+  "version": "1.0.0",
+  "description": "for testing purpose",
+  "license": "ISC",
+  "author": "A.Rahim",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
