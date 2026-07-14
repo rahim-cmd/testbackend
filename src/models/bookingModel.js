@@ -1,23 +1,20 @@
 const db = require("../config/db");
 
-const createBooking = async (bookingData) => {
+const createBooking = async (connection, bookingData) => {
 
-    const [result] = await db.execute(
+    const [result] = await connection.execute(
 
         `INSERT INTO bookings
         (
             user_id,
             circle_id,
-            payment_status,
             booking_status
         )
-        VALUES
-        (?, ?, ?, ?)`,
+        VALUES (?, ?, ?)`,
 
         [
             bookingData.user_id,
             bookingData.circle_id,
-            "pending",
             "pending"
         ]
 
@@ -45,6 +42,23 @@ const getCircleById = async (circleId) => {
     );
 
     return rows[0];
+
+};
+
+const incrementBookedMembers = async (
+    connection,
+    circleId
+) => {
+
+    await connection.execute(
+
+        `UPDATE circle_events
+         SET booked_members = booked_members + 1
+         WHERE id = ?`,
+
+        [circleId]
+
+    );
 
 };
 
@@ -76,6 +90,7 @@ module.exports = {
 
     createBooking,
     getCircleById,
-    getExistingBooking
+    getExistingBooking,
+    incrementBookedMembers
 };
    
