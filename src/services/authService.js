@@ -75,8 +75,51 @@ const registerUser = async (userData) => {
 
 };
 
+const loginUser = async (email, password) => {
+
+    const user = await userModel.findUserByEmail(email);
+
+    if (!user) {
+        throw new Error("Invalid email or password.");
+    }
+
+    const isPasswordCorrect = await bcrypt.compare(
+        password,
+        user.password
+    );
+
+    if (!isPasswordCorrect) {
+        throw new Error("Invalid email or password.");
+    }
+
+    if (user.status !== "active") {
+        throw new Error("Your account is inactive.");
+    }
+
+    const token = jwt.sign(
+        {
+            id: user.id,
+            email: user.email,
+            role: user.role,
+            type: "access"
+        },
+        process.env.JWT_SECRET,
+        {
+            expiresIn: process.env.JWT_EXPIRES_IN
+        }
+    );
+
+    delete user.password;
+
+    return {
+        token,
+        user
+    };
+};
+
 module.exports = {
 
-    registerUser
+    registerUser,
+    loginUser
 
 };

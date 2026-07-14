@@ -5,13 +5,19 @@ const router = express.Router();
 const authController = require("../controllers/authController");
 
 const {
-    registerValidation
+    registerValidation,
+    loginValidation
 } = require("../validators/authValidator");
 
 router.post(
     "/register",
     registerValidation,
     authController.register
+);
+router.post(
+    "/login",
+    loginValidation,
+    authController.login
 );
 
 module.exports = router;
