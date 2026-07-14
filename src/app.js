@@ -7,10 +7,6 @@ const morgan = require("morgan");
 
 const app = express();
 
-const healthRoutes = require("./routes/healthRoutes");
-
-app.use("/api/v1/health", healthRoutes);
-
 app.use(cors());
 
 app.use(helmet());
@@ -24,5 +20,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 app.use(morgan("dev"));
+
+const authRoutes = require("./routes/authRoutes");
+
+app.use("/api/v1/auth", authRoutes);
 
 module.exports = app;
