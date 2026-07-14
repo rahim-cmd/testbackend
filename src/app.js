@@ -23,8 +23,10 @@ app.use(morgan("dev"));
 
 const authRoutes = require("./routes/authRoutes");
 const circleRoutes = require("./routes/circleRoutes");
+const bookingRoutes = require("./routes/bookingRoutes");
 
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/circles", circleRoutes);
+app.use("/api/v1/bookings", bookingRoutes);
 
 module.exports = app;
