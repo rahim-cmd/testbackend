@@ -43,8 +43,36 @@ const createCircle = async (circle) => {
 
 };
 
+const getUpcomingCircles = async () => {
+
+    const [rows] = await db.execute(
+
+        `SELECT
+            id,
+            title,
+            description,
+            meeting_date,
+            start_time,
+            end_time,
+            max_members,
+            booked_members,
+            host_name
+        FROM circle_events
+        WHERE
+            status = 'scheduled'
+            AND booking_open = 1
+            AND meeting_date >= CURDATE()
+        ORDER BY meeting_date ASC, start_time ASC`
+
+    );
+
+    return rows;
+
+};
+
 module.exports = {
 
-    createCircle
+    createCircle,
+    getUpcomingCircles
 
 };

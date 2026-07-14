@@ -20,7 +20,7 @@ const createCircle = async (circleData) => {
 
         host_name: circleData.host_name || null,
 
-        created_by: circleData.created_by
+        created_by: circleData.userId
 
     };
 
@@ -33,9 +33,15 @@ const createCircle = async (circleData) => {
     };
 
 };
+const getUpcomingCircles = async () => {
+
+    return await circleModel.getUpcomingCircles();
+
+};
 
 module.exports = {
 
-    createCircle
+    createCircle,
+    getUpcomingCircles
 
 };
