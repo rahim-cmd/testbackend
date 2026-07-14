@@ -22,7 +22,9 @@ app.use(cookieParser());
 app.use(morgan("dev"));
 
 const authRoutes = require("./routes/authRoutes");
+const circleRoutes = require("./routes/circleRoutes");
 
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/v1/circles", circleRoutes);
 
 module.exports = app;
