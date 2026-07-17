@@ -1,0 +1,563 @@
+{
+  "info": {
+    "name": "Express Admin APIs",
+    "_postman_id": "9f21b5f6-9ec1-44cf-a0e9-caf7d295f001",
+    "description": "Admin circle CRUD, user management, and booking approval/rejection endpoints.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Circles Admin",
+      "item": [
+        {
+          "name": "Get All Circles",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/circles/admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "circles",
+                "admin"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Circle By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/circles/admin/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "circles",
+                "admin",
+                ":id"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Circle",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Cloud Architecture Circle\",\n  \"description\": \"Weekly architecture deep dive.\",\n  \"meeting_date\": \"2026-07-25\",\n  \"start_time\": \"18:00:00\",\n  \"end_time\": \"19:00:00\",\n  \"max_members\": 40,\n  \"host_name\": \"Admin Host\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/circles/admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "circles",
+                "admin"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update Circle",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Circle Title\",\n  \"max_members\": 50,\n  \"booking_open\": 1,\n  \"status\": \"scheduled\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/circles/admin/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "circles",
+                "admin",
+                ":id"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete Circle",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/circles/admin/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "circles",
+                "admin",
+                ":id"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Regenerate Circle Zoom Link",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/circles/admin/:id/zoom/regenerate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "circles",
+                "admin",
+                ":id",
+                "zoom",
+                "regenerate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Remove Circle Zoom Link",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Meeting link removed temporarily due to schedule change\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/circles/admin/:id/zoom",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "circles",
+                "admin",
+                ":id",
+                "zoom"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users Admin",
+      "item": [
+        {
+          "name": "Get All Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User By Id",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Aisha\",\n  \"last_name\": \"Khan\",\n  \"email\": \"aisha@example.com\",\n  \"phone\": \"+15550001234\",\n  \"password\": \"StrongPass123\",\n  \"role\": \"user\",\n  \"status\": \"active\",\n  \"email_verified\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"first_name\": \"Aisha Updated\",\n  \"status\": \"inactive\",\n  \"role\": \"admin\",\n  \"email_verified\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                ":id"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Bookings Admin",
+      "item": [
+        {
+          "name": "Get All Bookings",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/bookings/admin",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookings",
+                "admin"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve Booking",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Approved by admin\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/:id/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookings",
+                ":id",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Reject Booking",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Policy mismatch\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/:id/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookings",
+                ":id",
+                "reject"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Generic Status Update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"reason\": \"Manual override\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/bookings/:id/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "bookings",
+                ":id",
+                "status"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health Admin",
+      "item": [
+        {
+          "name": "Zoom Health Check",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/health/zoom",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health",
+                "zoom"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Zoom Admin",
+      "item": [
+        {
+          "name": "Get Circle Zoom Overview",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zoom/circles/:id",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zoom",
+                "circles",
+                ":id"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Circle Zoom Logs",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zoom/circles/:id/logs",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zoom",
+                "circles",
+                ":id",
+                "logs"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Resync Circle Zoom Snapshots",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/zoom/circles/:id/resync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "zoom",
+                "circles",
+                ":id",
+                "resync"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000/api/v1"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    }
+  ]
+}

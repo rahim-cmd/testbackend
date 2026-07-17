@@ -1,0 +1,117 @@
+START_PROMPT
+
+You are updating an existing frontend for a circle booking platform.
+
+Your task is only about the Zoom meeting lifecycle UI and related admin/user experiences.
+
+Backend base URL:
+http://localhost:5000/api/v1
+
+Auth header:
+Authorization: Bearer <token>
+
+Relevant endpoints:
+1) GET /bookings/my
+2) GET /bookings/admin
+3) PUT /bookings/:id/approve
+4) PUT /bookings/:id/reject
+5) GET /circles/admin
+6) GET /circles/admin/:id
+7) POST /circles/admin/:id/zoom/regenerate
+8) DELETE /circles/admin/:id/zoom
+9) GET /zoom/circles/:id
+10) GET /zoom/circles/:id/logs
+11) POST /zoom/circles/:id/resync
+12) GET /health/zoom
+
+Important backend behavior:
+1) One Zoom meeting belongs to one circle.
+2) Approved bookings get snapshot rows in zoom_meetings table.
+3) If admin updates circle schedule, backend syncs Zoom meeting and all approved booking snapshots.
+4) If Zoom link changes or is removed, backend updates user dashboard state and sends email.
+5) If meeting time is over, backend marks link expired in dashboard response.
+
+Dashboard fields from GET /bookings/my that frontend must use:
+- booking_status
+- notes
+- approved_at
+- zoom_meeting_id
+- zoom_link
+- zoom_start_time
+- zoom_duration
+- zoom_updated_at
+- zoom_status
+- zoom_message
+
+Possible zoom_status values:
+- pending
+- active
+- updated
+- unavailable
+- expired
+- rejected
+- cancelled
+
+Required user dashboard behavior:
+1) If zoom_status = active, show Join Meeting button.
+2) If zoom_status = updated, show Join Meeting button and a visible Updated badge/message.
+3) If zoom_status = unavailable, hide join button and show warning message from zoom_message.
+4) If zoom_status = expired, hide join button and show Meeting Completed or Link Expired state.
+5) If booking_status = pending, show waiting state.
+6) If booking_status = rejected, show rejection state and reason if notes/zoom_message available.
+7) If booking_status = cancelled, show cancelled state.
+
+Required admin UI behavior:
+1) In circles management, add buttons:
+   - Regenerate Zoom Link
+   - Remove Zoom Link
+   - View Zoom Details
+2) Regenerate Zoom Link calls POST /circles/admin/:id/zoom/regenerate.
+3) Remove Zoom Link calls DELETE /circles/admin/:id/zoom and sends body:
+{
+  "reason": "Meeting link removed temporarily due to schedule change"
+}
+4) View Zoom Details calls GET /zoom/circles/:id.
+5) Admin bookings page should clearly show whether approved users are synced with Zoom snapshot data.
+6) Admin should be able to trigger manual re-sync using POST /zoom/circles/:id/resync.
+7) Admin should be able to read audit logs using GET /zoom/circles/:id/logs.
+
+Expected admin Zoom overview UX:
+1) Show current Zoom meeting id, join link, start time, and duration.
+2) Show sync summary:
+   - approved_count
+   - synced_count
+   - unsynced_count
+3) Show per-booking rows with:
+   - booking_id
+   - user name
+   - email
+   - booking_status
+   - zoom snapshot presence
+   - snapshot updated time
+4) Highlight any unsynced approved booking.
+5) Show an audit log timeline/table with event_type, event_source, status, message, and created_at.
+
+Frontend implementation requirements:
+1) Use existing app stack if present.
+2) Use real APIs only.
+3) Add proper loading, error, empty, and success states.
+4) Use confirmation modal for regenerate/remove actions.
+5) Show toast/snackbar on success or failure.
+6) Disable action buttons during mutation requests.
+7) Re-fetch affected queries after regenerate/remove/approve/reject actions.
+
+Acceptance criteria:
+1) User dashboard reflects real-time Zoom lifecycle states from backend response.
+2) Admin can inspect Zoom sync status for each circle.
+3) Admin can regenerate/remove Zoom links.
+4) UI does not guess business rules; it renders based on zoom_status and zoom_message.
+5) All new UI is responsive and production-usable.
+
+Output requirements:
+1) Update all necessary frontend files.
+2) List changed files.
+3) Provide run steps.
+4) Do not leave TODO placeholders for core Zoom flows.
+
+END_PROMPT

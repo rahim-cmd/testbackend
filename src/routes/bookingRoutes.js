@@ -15,5 +15,62 @@ router.post(
     bookingController.createBooking
 
 );
+router.get(
 
+    "/my",
+
+    authenticate,
+
+    bookingController.getMyBookings
+
+);
+
+router.get(
+
+    "/admin",
+
+    authenticate,
+    authenticate.isAdmin,
+    bookingController.getAllBookings
+
+);
+router.put(
+
+    "/:id/status",
+
+    authenticate,
+    authenticate.isAdmin,
+    bookingController.updateBookingStatus
+
+);
+
+router.put(
+
+    "/:id/approve",
+
+    authenticate,
+    authenticate.isAdmin,
+    bookingController.approveBooking
+
+);
+
+router.put(
+
+    "/:id/reject",
+
+    authenticate,
+    authenticate.isAdmin,
+    bookingController.rejectBooking
+
+);
+
+router.put(
+
+    "/:id/cancel",
+
+    authenticate,
+
+    bookingController.cancelBooking
+
+);
 module.exports = router;

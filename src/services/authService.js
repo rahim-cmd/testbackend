@@ -1,7 +1,7 @@
 const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 
 const userModel = require("../models/userModel");
+const { signToken } = require("../utils/jwt");
 
 const registerUser = async (userData) => {
 
@@ -45,20 +45,13 @@ const registerUser = async (userData) => {
 
     // Generate JWT
 
-    const token = jwt.sign(
-
+    const token = signToken(
         {
             id: userId,
             email: newUser.email,
             role: newUser.role
         },
-
-        process.env.JWT_SECRET,
-
-        {
-            expiresIn: process.env.JWT_EXPIRES_IN
-        }
-
+        process.env.JWT_EXPIRES_IN || "7d"
     );
 
     // Fetch User
@@ -73,6 +66,18 @@ const registerUser = async (userData) => {
 
     };
 
+};
+
+const getProfile = async (userId) => {
+    const user = await userModel.findUserById(userId);
+
+    if (!user) {
+        throw new Error("User not found.");
+    }
+
+    delete user.password;
+
+    return user;
 };
 
 const loginUser = async (email, password) => {
@@ -96,17 +101,14 @@ const loginUser = async (email, password) => {
         throw new Error("Your account is inactive.");
     }
 
-    const token = jwt.sign(
+    const token = signToken(
         {
             id: user.id,
             email: user.email,
             role: user.role,
             type: "access"
         },
-        process.env.JWT_SECRET,
-        {
-            expiresIn: process.env.JWT_EXPIRES_IN
-        }
+        process.env.JWT_EXPIRES_IN || "7d"
     );
 
     delete user.password;
@@ -120,6 +122,7 @@ const loginUser = async (email, password) => {
 module.exports = {
 
     registerUser,
-    loginUser
+    loginUser,
+    getProfile
 
 };

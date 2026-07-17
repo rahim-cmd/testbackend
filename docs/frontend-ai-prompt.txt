@@ -1,0 +1,229 @@
+START_PROMPT
+
+You are building a production-quality frontend app for a backend that is already complete.
+
+Goal:
+Build a complete functional frontend with user and admin panels for circle booking platform.
+
+Important constraints:
+1) If a frontend project already exists, continue in existing stack and folder conventions.
+2) If no frontend project exists, create React + Vite + JavaScript app with clean modular structure.
+3) Use responsive UI for desktop and mobile.
+4) Add route guards for unauthenticated and non-admin users.
+5) Add proper loading, empty, error, and success states.
+6) No fake backend data. Use real APIs listed below.
+
+Backend base URL:
+http://localhost:5000/api/v1
+
+Auth header format for protected APIs:
+Authorization: Bearer <token>
+
+Standard API response patterns:
+Success:
+{
+  "success": true,
+  "message": "Optional",
+  "data": {}
+}
+
+Validation Error:
+{
+  "success": false,
+  "message": "Validation failed.",
+  "errors": [
+    { "field": "email", "message": "Please enter a valid email address." }
+  ]
+}
+
+General Error:
+{
+  "success": false,
+  "message": "Error message"
+}
+
+Required pages:
+1) Login page
+2) Register page
+3) Public upcoming circles page
+4) User dashboard page (my bookings)
+5) Admin dashboard landing page
+6) Admin circles management page
+7) Admin users management page
+8) Admin bookings approval page
+
+Required flows:
+1) Register and login
+2) Persist JWT (localStorage acceptable)
+3) Role based redirect after login:
+   - admin -> /admin
+   - user -> /dashboard
+4) User can view upcoming circles and create booking
+5) User dashboard must show booking status and Zoom link only when approved
+6) Admin can CRUD circles
+7) Admin can CRUD users
+8) Admin can approve/reject bookings
+9) Admin can regenerate or remove Zoom meeting links for a circle
+10) User dashboard must reflect active, updated, unavailable, and expired meeting states
+
+API contracts:
+
+Auth:
+POST /auth/register
+Body:
+{
+  "first_name": "Aisha",
+  "last_name": "Khan",
+  "email": "aisha@example.com",
+  "phone": "+15550001234",
+  "password": "StrongPass123"
+}
+
+POST /auth/login
+Body:
+{
+  "email": "aisha@example.com",
+  "password": "StrongPass123"
+}
+
+GET /auth/profile
+POST /auth/logout
+
+Public circles:
+GET /circles/upcoming
+
+User bookings:
+POST /bookings
+Body:
+{
+  "circle_id": 12
+}
+
+GET /bookings/my
+Notes:
+- API returns zoom_link only when booking_status = approved
+- For pending/rejected/cancelled, zoom_link is null
+- API also returns zoom_status and zoom_message for dashboard rendering
+- Possible zoom_status values include: pending, active, updated, unavailable, expired, rejected, cancelled
+
+PUT /bookings/:id/cancel
+
+Admin circles:
+GET /circles/admin
+GET /circles/admin/:id
+POST /circles/admin
+Body:
+{
+  "title": "Cloud Architecture Circle",
+  "description": "Weekly architecture deep dive.",
+  "meeting_date": "2026-07-25",
+  "start_time": "18:00:00",
+  "end_time": "19:00:00",
+  "max_members": 40,
+  "host_name": "Admin Host"
+}
+
+PUT /circles/admin/:id
+DELETE /circles/admin/:id
+POST /circles/admin/:id/zoom/regenerate
+DELETE /circles/admin/:id/zoom
+Body:
+{
+  "reason": "Meeting link removed temporarily due to schedule change"
+}
+
+Important:
+When admin creates circle without zoom_link, backend auto-generates Zoom meeting link.
+Backend also stores per-approved-booking Zoom snapshot rows in zoom_meetings table and keeps them synced when admin changes the meeting.
+
+Admin users:
+GET /users
+GET /users/:id
+POST /users
+PUT /users/:id
+DELETE /users/:id
+
+Admin bookings:
+GET /bookings/admin
+PUT /bookings/:id/approve
+Body:
+{
+  "reason": "Approved by admin"
+}
+
+PUT /bookings/:id/reject
+Body:
+{
+  "reason": "Circle capacity policy not met"
+}
+
+PUT /bookings/:id/status
+Body:
+{
+  "status": "approved",
+  "reason": "Manual override"
+}
+
+Zoom health check (admin utility):
+GET /health/zoom
+
+Admin Zoom overview:
+GET /zoom/circles/:id
+
+Admin Zoom logs:
+GET /zoom/circles/:id/logs
+
+Manual Zoom re-sync:
+POST /zoom/circles/:id/resync
+
+Use this endpoint in admin UI to show:
+- current circle Zoom meeting metadata
+- sync summary for approved users vs synced snapshot rows
+- booking-level Zoom snapshot details for troubleshooting
+- audit logs for Zoom lifecycle actions
+
+UI behavior requirements:
+1) On user dashboard booking card:
+   - approved + zoom_link exists -> show "Join Meeting" button
+   - pending -> show "Waiting for admin approval"
+   - rejected -> show "Rejected"
+   - cancelled -> show "Cancelled"
+  - zoom_status = updated -> show visible "Meeting link updated" badge
+  - zoom_status = unavailable -> show visible warning and hide join action
+  - zoom_status = expired -> show "Meeting completed" or "Link expired" and hide join action
+2) For approve/reject in admin bookings page, show confirmation modal.
+3) Use toast/snackbar notifications for API results.
+4) Disable submit buttons during API calls.
+5) In admin circles management, provide actions to regenerate and remove Zoom links.
+6) Remove Zoom action should ask for a reason and submit it to backend.
+7) Add a Zoom details drawer/modal/page in admin area backed by GET /zoom/circles/:id.
+8) Add a manual Re-sync action backed by POST /zoom/circles/:id/resync.
+9) Show Zoom audit logs backed by GET /zoom/circles/:id/logs.
+
+Frontend architecture requirements:
+1) Create centralized API client with interceptor for token.
+2) Create auth store/context for user and role.
+3) Create reusable components: DataTable, Modal, ConfirmDialog, StatusBadge, ProtectedRoute.
+4) Keep endpoint paths/constants in one file.
+5) Add clean folder structure and avoid very large files.
+
+Acceptance criteria:
+1) All listed pages are accessible and connected to real APIs.
+2) Role-based routing works.
+3) Admin can fully manage circles, users, bookings.
+4) User sees zoom link only after approval.
+5) User sees updated/unavailable/expired Zoom states correctly.
+6) Admin can regenerate/remove Zoom links from the UI.
+7) Error handling is visible and user friendly.
+8) App runs locally without TypeScript or lint errors (based on chosen stack).
+
+Output requirements from AI:
+1) Create or update all needed frontend files.
+2) Provide final list of created/updated files.
+3) Provide run steps:
+   - install
+   - dev
+   - build
+4) Do not leave placeholders like TODO for core flows.
+
+END_PROMPT

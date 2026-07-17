@@ -1,4 +1,4 @@
-const jwt = require("jsonwebtoken");
+const { verifyToken } = require("../utils/jwt");
 
 const authenticate = (req, res, next) => {
 
@@ -17,10 +17,7 @@ const authenticate = (req, res, next) => {
 
         const token = authHeader.split(" ")[1];
 
-        const decoded = jwt.verify(
-            token,
-            process.env.JWT_SECRET
-        );
+        const decoded = verifyToken(token);
 
         req.user = decoded;
 
@@ -37,4 +34,17 @@ const authenticate = (req, res, next) => {
 
 };
 
+const isAdmin = (req, res, next) => {
+
+    if (!req.user || req.user.role !== "admin") {
+        return res.status(403).json({
+            success: false,
+            message: "Access denied. Admin only."
+        });
+    }
+
+    next();
+};
+
 module.exports = authenticate;
+module.exports.isAdmin = isAdmin;
