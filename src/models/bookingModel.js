@@ -129,6 +129,46 @@ const getMyBookings = async (userId) => {
 
 };
 
+const getLatestBookingForUser = async (userId) => {
+
+    const [rows] = await db.execute(
+
+        `SELECT
+            b.id,
+            b.circle_id,
+            b.booking_status,
+            b.notes,
+            b.approved_at,
+            b.created_at,
+            c.title,
+            c.description,
+            c.meeting_date,
+            c.start_time,
+            c.end_time,
+            c.host_name,
+            COALESCE(zm.meeting_id, c.zoom_meeting_id) AS zoom_meeting_id,
+            COALESCE(zm.join_url, c.zoom_link) AS zoom_link,
+            COALESCE(zm.start_time, c.zoom_start_time) AS zoom_start_time,
+            COALESCE(zm.duration, c.zoom_duration) AS zoom_duration,
+            zm.updated_at AS zoom_updated_at
+        FROM bookings b
+        INNER JOIN circle_events c
+            ON b.circle_id = c.id
+        LEFT JOIN zoom_meetings zm
+            ON zm.booking_id = b.id
+        WHERE b.user_id = ?
+          AND b.booking_status != 'cancelled'
+        ORDER BY b.created_at DESC
+        LIMIT 1`,
+
+        [userId]
+
+    );
+
+    return rows[0];
+
+};
+
 const getAllBookings = async () => {
     const [rows] = await db.execute(
         `SELECT
@@ -290,6 +330,7 @@ module.exports = {
     getCircleById,
     getExistingBooking,
     getMyBookings,
+    getLatestBookingForUser,
     getAllBookings,
     updateBookingStatus,
     getBookingByIdForAdmin,
