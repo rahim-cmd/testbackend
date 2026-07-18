@@ -27,7 +27,7 @@ const sendBookingStatusEmail = async ({
     circleTitle,
     status,
     reason,
-    zoomLink,
+    dashboardUrl,
 }) => {
     const transporter = createTransporter();
 
@@ -43,11 +43,11 @@ const sendBookingStatusEmail = async ({
         : "Your circle booking was not approved";
 
     const text = status === "approved"
-        ? `Hi ${userName},\n\nYour booking for "${circleTitle}" has been approved.\n\nZoom link: ${zoomLink || "Not available yet."}`
+        ? `Hi ${userName},\n\nYour booking for "${circleTitle}" has been approved.\n\nPlease join the meeting only from your Circlia dashboard.${dashboardUrl ? `\n\nDashboard: ${dashboardUrl}` : ""}\n\nFor security, the Zoom link is not sent by email.`
         : `Hi ${userName},\n\nYour booking for "${circleTitle}" was not approved.\n\nReason: ${reason || "No reason provided."}`;
 
     const html = status === "approved"
-        ? `<p>Hi ${userName},</p><p>Your booking for <strong>${circleTitle}</strong> has been approved.</p><p>Zoom link: <strong>${zoomLink || "Not available yet."}</strong></p>`
+        ? `<p>Hi ${userName},</p><p>Your booking for <strong>${circleTitle}</strong> has been approved.</p><p>Please join the meeting only from your Circlia dashboard.</p>${dashboardUrl ? `<p>Dashboard: <strong>${dashboardUrl}</strong></p>` : ""}<p>For security, the Zoom link is not sent by email.</p>`
         : `<p>Hi ${userName},</p><p>Your booking for <strong>${circleTitle}</strong> was not approved.</p><p><strong>Reason:</strong> ${reason || "No reason provided."}</p>`;
 
     await transporter.sendMail({

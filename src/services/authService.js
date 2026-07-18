@@ -3,6 +3,7 @@ const bcrypt = require("bcryptjs");
 const userModel = require("../models/userModel");
 const bookingModel = require("../models/bookingModel");
 const { signToken } = require("../utils/jwt");
+const { isWithinJoinWindow } = require("../utils/timezone");
 
 const registerUser = async (userData) => {
 
@@ -71,8 +72,14 @@ const registerUser = async (userData) => {
 const buildZoomPresentation = (booking) => {
     const result = {
         zoom_link: null,
+        zoom_password: null,
         zoom_status: null,
         zoom_message: null,
+        join_enabled: Boolean(Number(booking?.join_enabled ?? 1)),
+        can_join: false,
+        join_message: null,
+        join_lock_reason: booking?.join_lock_reason || null,
+        join_locked_at: booking?.join_locked_at || null,
     };
 
     if (!booking) {
@@ -84,6 +91,7 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "pending",
             zoom_message: "Waiting for admin approval.",
+            join_message: "Waiting for admin approval.",
         };
     }
 
@@ -92,6 +100,7 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "rejected",
             zoom_message: booking.notes || "Your booking was not approved.",
+            join_message: booking.notes || "Your booking was not approved.",
         };
     }
 
@@ -100,6 +109,7 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "cancelled",
             zoom_message: "This booking has been cancelled.",
+            join_message: "This booking has been cancelled.",
         };
     }
 
@@ -108,6 +118,7 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "unavailable",
             zoom_message: "Meeting link is temporarily unavailable. Please check back later.",
+            join_message: "Meeting link is temporarily unavailable. Please check back later.",
         };
     }
 
@@ -122,6 +133,7 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "expired",
             zoom_message: "Meeting time has passed. This link is no longer active.",
+            join_message: "Meeting time has passed. This link is no longer active.",
         };
     }
 
@@ -129,12 +141,27 @@ const buildZoomPresentation = (booking) => {
         ? new Date(booking.zoom_updated_at).getTime() > new Date(booking.approved_at).getTime()
         : false;
 
+    const joinWindowOpen = isWithinJoinWindow({
+        meeting_date: booking.meeting_date,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+    });
+    const joinEnabled = Boolean(Number(booking.join_enabled ?? 1));
+
     return {
         zoom_link: booking.zoom_link,
+        zoom_password: booking.zoom_password || null,
         zoom_status: wasUpdated ? "updated" : "active",
         zoom_message: wasUpdated
             ? "Meeting details were updated. Please use the latest link below."
             : "Your meeting link is ready.",
+        can_join: joinEnabled && joinWindowOpen,
+        join_message: !joinEnabled
+            ? (booking.join_lock_reason || "Join access is disabled by admin.")
+            : (joinWindowOpen ? "Join is available from your dashboard." : "Join will be enabled 2 minutes before the meeting starts."),
+        join_enabled: joinEnabled,
+        join_lock_reason: booking.join_lock_reason || null,
+        join_locked_at: booking.join_locked_at || null,
     };
 };
 
@@ -177,9 +204,15 @@ const getProfile = async (userId) => {
             host_name: currentBooking.host_name,
             zoom_meeting_id: currentBooking.zoom_meeting_id,
             zoom_link: zoomPresentation.zoom_link,
+            zoom_password: zoomPresentation.zoom_password,
             zoom_start_time: currentBooking.zoom_start_time,
             zoom_duration: currentBooking.zoom_duration,
             zoom_updated_at: currentBooking.zoom_updated_at,
+            join_enabled: zoomPresentation.join_enabled,
+            can_join: zoomPresentation.can_join,
+            join_message: zoomPresentation.join_message,
+            join_lock_reason: zoomPresentation.join_lock_reason,
+            join_locked_at: zoomPresentation.join_locked_at,
             ...zoomPresentation,
         },
         current_booking_status: currentBooking.booking_status,

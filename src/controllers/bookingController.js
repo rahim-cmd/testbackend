@@ -183,6 +183,88 @@ const cancelBooking = async (req, res) => {
 
 };
 
+const startJoinSession = async (req, res) => {
+    try {
+        const result = await bookingService.startBookingJoinSession({
+            bookingId: req.params.id,
+            userId: req.user.id,
+            ipAddress: req.ip,
+            userAgent: req.get("user-agent"),
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Join session started successfully.",
+            data: result,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+const endJoinSession = async (req, res) => {
+    try {
+        const result = await bookingService.endBookingJoinSession({
+            bookingId: req.params.id,
+            userId: req.user.id,
+            ipAddress: req.ip,
+            userAgent: req.get("user-agent"),
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Join session ended successfully.",
+            data: result,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+const updateJoinControl = async (req, res) => {
+    try {
+        const result = await bookingService.setBookingJoinControl({
+            bookingId: req.params.id,
+            isEnabled: req.body.is_enabled,
+            adminId: req.user.id,
+            reason: req.body.reason,
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Join control updated successfully.",
+            data: result,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+const getJoinLogs = async (req, res) => {
+    try {
+        const logs = await bookingService.getMyBookingJoinLogs(req.params.id);
+
+        return res.status(200).json({
+            success: true,
+            data: logs,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 
 module.exports = {
 
@@ -192,6 +274,10 @@ module.exports = {
     updateBookingStatus,
     approveBooking,
     rejectBooking,
-    cancelBooking
+    cancelBooking,
+    startJoinSession,
+    endJoinSession,
+    updateJoinControl,
+    getJoinLogs
 
 };

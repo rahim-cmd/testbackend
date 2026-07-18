@@ -3,12 +3,19 @@ const db = require("../config/db");
 const zoomMeetingModel = require("../models/zoomMeetingModel");
 const { createZoomMeeting } = require("./zoomService");
 const { sendBookingStatusEmail } = require("./emailService");
+const { isWithinJoinWindow } = require("../utils/timezone");
 
 const buildZoomPresentation = (booking) => {
     const result = {
         zoom_link: null,
+        zoom_password: booking.zoom_password || null,
         zoom_status: null,
         zoom_message: null,
+        join_enabled: Boolean(Number(booking.join_enabled ?? 1)),
+        can_join: false,
+        join_message: null,
+        join_lock_reason: booking.join_lock_reason || null,
+        join_locked_at: booking.join_locked_at || null,
     };
 
     if (booking.booking_status === "pending") {
@@ -16,6 +23,8 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "pending",
             zoom_message: "Waiting for admin approval.",
+            can_join: false,
+            join_message: "Waiting for admin approval.",
         };
     }
 
@@ -24,6 +33,8 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "rejected",
             zoom_message: booking.notes || "Your booking was not approved.",
+            can_join: false,
+            join_message: booking.notes || "Your booking was not approved.",
         };
     }
 
@@ -32,6 +43,8 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "cancelled",
             zoom_message: "This booking has been cancelled.",
+            can_join: false,
+            join_message: "This booking has been cancelled.",
         };
     }
 
@@ -40,6 +53,8 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "unavailable",
             zoom_message: "Meeting link is temporarily unavailable. Please check back later.",
+            can_join: false,
+            join_message: "Meeting link is temporarily unavailable. Please check back later.",
         };
     }
 
@@ -54,6 +69,8 @@ const buildZoomPresentation = (booking) => {
             ...result,
             zoom_status: "expired",
             zoom_message: "Meeting time has passed. This link is no longer active.",
+            can_join: false,
+            join_message: "Meeting time has passed. This link is no longer active.",
         };
     }
 
@@ -61,12 +78,27 @@ const buildZoomPresentation = (booking) => {
         ? new Date(booking.zoom_updated_at).getTime() > new Date(booking.approved_at).getTime()
         : false;
 
+    const joinEnabled = Boolean(Number(booking.join_enabled ?? 1));
+    const joinWindowOpen = isWithinJoinWindow({
+        meeting_date: booking.meeting_date,
+        start_time: booking.start_time,
+        end_time: booking.end_time,
+    });
+
     return {
         zoom_link: booking.zoom_link,
+        zoom_password: booking.zoom_password || null,
         zoom_status: wasUpdated ? "updated" : "active",
         zoom_message: wasUpdated
             ? "Meeting details were updated. Please use the latest link below."
             : "Your meeting link is ready.",
+        can_join: joinEnabled && joinWindowOpen,
+        join_message: !joinEnabled
+            ? (booking.join_lock_reason || "Join access is disabled by admin.")
+            : (joinWindowOpen ? "Join is available from your dashboard." : "Join will be enabled 2 minutes before the meeting starts."),
+        join_enabled: joinEnabled,
+        join_lock_reason: booking.join_lock_reason || null,
+        join_locked_at: booking.join_locked_at || null,
     };
 };
 
@@ -145,6 +177,175 @@ const getMyBookings = async (userId) => {
 
 const getAllBookings = async () => {
     return await bookingModel.getAllBookings();
+};
+
+const getMyBookingJoinLogs = async (bookingId, userId) => {
+    const booking = await bookingModel.getBookingJoinContext(bookingId, userId);
+
+    if (!booking) {
+        throw new Error("Booking not found.");
+    }
+
+    return await bookingModel.getBookingJoinLogsByBookingId(bookingId);
+};
+
+const startBookingJoinSession = async ({ bookingId, userId, ipAddress, userAgent }) => {
+    const booking = await bookingModel.getBookingJoinContext(bookingId, userId);
+
+    if (!booking) {
+        throw new Error("Booking not found.");
+    }
+
+    if (booking.booking_status !== "approved") {
+        throw new Error("Booking is not approved yet.");
+    }
+
+    const presentation = buildZoomPresentation(booking);
+
+    if (!presentation.can_join) {
+        throw new Error(presentation.join_message || "Meeting cannot be joined right now.");
+    }
+
+    if (!presentation.join_enabled) {
+        throw new Error(presentation.join_lock_reason || "Join access is disabled by admin.");
+    }
+
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        await bookingModel.setBookingJoinControl(connection, bookingId, {
+            is_enabled: false,
+            locked_by_user_id: userId,
+            locked_by_admin_id: null,
+            lock_reason: "User joined from dashboard.",
+            locked_at: new Date(),
+            enabled_at: null,
+            disabled_at: new Date(),
+        });
+
+        await bookingModel.createBookingJoinLog(connection, {
+            booking_id: bookingId,
+            user_id: userId,
+            event_type: "join_started",
+            event_source: "user",
+            status: "success",
+            message: "User opened the meeting from the dashboard.",
+            ip_address: ipAddress || null,
+            user_agent: userAgent || null,
+        });
+
+        await connection.commit();
+
+        return {
+            id: bookingId,
+            join_enabled: false,
+            can_join: false,
+            join_message: "Join access has been locked until an admin re-enables it.",
+        };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
+const endBookingJoinSession = async ({ bookingId, userId, ipAddress, userAgent }) => {
+    const booking = await bookingModel.getBookingJoinContext(bookingId, userId);
+
+    if (!booking) {
+        throw new Error("Booking not found.");
+    }
+
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        await bookingModel.setBookingJoinControl(connection, bookingId, {
+            is_enabled: false,
+            locked_by_user_id: userId,
+            locked_by_admin_id: booking.join_locked_by_admin_id || null,
+            lock_reason: booking.join_lock_reason || "Meeting session ended by user.",
+            locked_at: booking.join_locked_at || new Date(),
+            enabled_at: booking.join_enabled_at || null,
+            disabled_at: new Date(),
+        });
+
+        await bookingModel.createBookingJoinLog(connection, {
+            booking_id: bookingId,
+            user_id: userId,
+            event_type: "join_ended",
+            event_source: "user",
+            status: "success",
+            message: "User ended the dashboard meeting session.",
+            ip_address: ipAddress || null,
+            user_agent: userAgent || null,
+        });
+
+        await connection.commit();
+
+        return {
+            id: bookingId,
+            join_enabled: false,
+            can_join: false,
+            join_message: "Meeting session ended.",
+        };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
+};
+
+const setBookingJoinControl = async ({ bookingId, isEnabled, adminId, reason }) => {
+    const booking = await bookingModel.getBookingByIdForAdmin(bookingId);
+
+    if (!booking) {
+        throw new Error("Booking not found.");
+    }
+
+    const connection = await db.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        await bookingModel.setBookingJoinControl(connection, bookingId, {
+            is_enabled: Boolean(isEnabled),
+            locked_by_user_id: null,
+            locked_by_admin_id: adminId,
+            lock_reason: reason || null,
+            locked_at: isEnabled ? null : new Date(),
+            enabled_at: isEnabled ? new Date() : null,
+            disabled_at: isEnabled ? null : new Date(),
+        });
+
+        await bookingModel.createBookingJoinLog(connection, {
+            booking_id: bookingId,
+            user_id: null,
+            event_type: isEnabled ? "join_enabled" : "join_disabled",
+            event_source: "admin",
+            status: "success",
+            message: reason || (isEnabled ? "Admin enabled meeting access." : "Admin disabled meeting access."),
+            ip_address: null,
+            user_agent: null,
+        });
+
+        await connection.commit();
+
+        return {
+            id: bookingId,
+            join_enabled: Boolean(isEnabled),
+        };
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
 };
 
 const updateBookingStatus = async ({ bookingId, status, reason, adminId }) => {
@@ -236,7 +437,7 @@ const updateBookingStatus = async ({ bookingId, status, reason, adminId }) => {
                 circleTitle: circle.title,
                 status,
                 reason,
-                zoomLink: circle.zoom_link,
+                dashboardUrl: process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/dashboard` : null,
             });
         }
 
@@ -306,6 +507,10 @@ module.exports = {
     createBooking,
     getMyBookings,
     getAllBookings,
+    getMyBookingJoinLogs,
+    startBookingJoinSession,
+    endBookingJoinSession,
+    setBookingJoinControl,
     updateBookingStatus,
     cancelBooking
 };

@@ -1,0 +1,86 @@
+START_PROMPT
+
+You are updating the frontend of the Circlia booking dashboard.
+
+Goal:
+Update the user dashboard and admin screens to support dashboard-only Zoom access, password display, join window control, and admin enable/disable actions.
+
+Backend rules:
+1) Do not show a direct Zoom link in email.
+2) Approved users must join from their Circlia dashboard only.
+3) Join is enabled only within the meeting window.
+4) Join should become available 2 minutes before the meeting start time.
+5) The frontend must display the Zoom password to the user when the booking is approved.
+6) If admin disables join access, the Join button must be disabled.
+7) When user clicks Join, the backend logs the access and locks the booking join access until admin re-enables it.
+8) User can end the session from the dashboard, but that does not re-enable join access.
+
+API expectations:
+1) GET /auth/profile
+2) GET /bookings/my
+3) POST /bookings/:id/join/start
+4) POST /bookings/:id/join/end
+5) GET /bookings/:id/join/logs
+6) PUT /bookings/:id/join/control
+
+Dashboard fields to use from booking responses:
+- booking_status
+- notes
+- approved_at
+- zoom_meeting_id
+- zoom_link
+- zoom_password
+- zoom_start_time
+- zoom_duration
+- zoom_updated_at
+- zoom_status
+- zoom_message
+- join_enabled
+- can_join
+- join_message
+- join_lock_reason
+- join_locked_at
+
+User dashboard behavior:
+1) Show booking card with current booking status.
+2) Show Zoom meeting ID and Zoom password when the booking is approved.
+3) Do not render the raw email link as the main action.
+4) Show a Join Meeting button only when can_join is true and join_enabled is true.
+5) Disable the Join Meeting button when can_join is false or join_enabled is false.
+6) Display join_message or join_lock_reason as helper text.
+7) On Join click, call POST /bookings/:id/join/start.
+8) On End click, call POST /bookings/:id/join/end.
+9) Re-fetch dashboard data after join start/end.
+10) If booking_status is pending, rejected, or cancelled, show the existing state without join controls.
+
+Admin behavior:
+1) Show join control state for each booking.
+2) Add Enable Join and Disable Join actions.
+3) Enable Join calls PUT /bookings/:id/join/control with body { "is_enabled": true }.
+4) Disable Join calls PUT /bookings/:id/join/control with body { "is_enabled": false, "reason": "..." }.
+5) Show join logs using GET /bookings/:id/join/logs.
+6) Highlight join_started and join_ended events.
+7) Disable admin buttons while the request is pending.
+
+Email behavior:
+1) For approved bookings, email must say the booking is approved.
+2) Email must tell the user to join only from the Circlia dashboard.
+3) Do not show the Zoom link in the email body.
+4) Keep rejection email behavior unchanged.
+
+UI requirements:
+1) Keep the dashboard responsive.
+2) Use loading, empty, and error states.
+3) Do not guess business rules in the UI.
+4) Render only what backend tells you through join_enabled and can_join.
+5) Make the join state obvious with clear badges or labels.
+
+Acceptance criteria:
+1) User can see Zoom password on the dashboard after approval.
+2) Join button only activates inside the allowed window.
+3) One click locks the join action until admin re-enables it.
+4) Admin can enable/disable join access.
+5) Join and logout attempts are logged server-side.
+6) Approved email does not expose the direct Zoom link.
+
+END_PROMPT

@@ -73,4 +73,45 @@ router.put(
     bookingController.cancelBooking
 
 );
+
+router.post(
+
+    "/:id/join/start",
+
+    authenticate,
+
+    bookingController.startJoinSession
+
+);
+
+router.post(
+
+    "/:id/join/end",
+
+    authenticate,
+
+    bookingController.endJoinSession
+
+);
+
+router.put(
+
+    "/:id/join/control",
+
+    authenticate,
+    authenticate.isAdmin,
+    bookingController.updateJoinControl
+
+);
+
+router.get(
+
+    "/:id/join/logs",
+
+    authenticate,
+    authenticate.isAdmin,
+    bookingController.getJoinLogs
+
+);
+
 module.exports = router;

@@ -50,6 +50,48 @@ const ensureZoomMeetingIndexes = async (connection) => {
     }
 };
 
+const ensureBookingJoinControlTable = async (connection) => {
+    await connection.execute(
+        `CREATE TABLE IF NOT EXISTS booking_join_controls (
+            booking_id INT NOT NULL,
+            is_enabled TINYINT(1) NOT NULL DEFAULT 1,
+            locked_by_user_id INT NULL,
+            locked_by_admin_id INT NULL,
+            lock_reason TEXT NULL,
+            locked_at DATETIME NULL,
+            enabled_at DATETIME NULL,
+            disabled_at DATETIME NULL,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (booking_id),
+            INDEX idx_booking_join_controls_enabled (is_enabled),
+            INDEX idx_booking_join_controls_locked_by_user_id (locked_by_user_id),
+            INDEX idx_booking_join_controls_locked_by_admin_id (locked_by_admin_id)
+        )`
+    );
+};
+
+const ensureBookingJoinLogTable = async (connection) => {
+    await connection.execute(
+        `CREATE TABLE IF NOT EXISTS booking_join_logs (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            booking_id INT NOT NULL,
+            user_id INT NULL,
+            event_type VARCHAR(50) NOT NULL,
+            event_source VARCHAR(20) NOT NULL,
+            status VARCHAR(20) NOT NULL,
+            message TEXT NULL,
+            ip_address VARCHAR(45) NULL,
+            user_agent TEXT NULL,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_booking_join_logs_booking_id (booking_id),
+            INDEX idx_booking_join_logs_user_id (user_id),
+            INDEX idx_booking_join_logs_created_at (created_at)
+        )`
+    );
+};
+
 const ensureZoomEventLogTable = async (connection) => {
     await connection.execute(
         `CREATE TABLE IF NOT EXISTS zoom_event_logs (
@@ -77,6 +119,8 @@ const ensureZoomSchema = async () => {
         await ensureCircleZoomColumns(connection);
         await ensureZoomMeetingIndexes(connection);
         await ensureZoomEventLogTable(connection);
+        await ensureBookingJoinControlTable(connection);
+        await ensureBookingJoinLogTable(connection);
     } finally {
         connection.release();
     }

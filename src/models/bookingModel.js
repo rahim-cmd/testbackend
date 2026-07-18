@@ -104,8 +104,15 @@ const getMyBookings = async (userId) => {
             c.host_name,
             COALESCE(zm.meeting_id, c.zoom_meeting_id) AS zoom_meeting_id,
             COALESCE(zm.join_url, c.zoom_link) AS zoom_link,
+            COALESCE(zm.start_url, c.zoom_start_url) AS zoom_start_url,
+            COALESCE(zm.password, c.zoom_password) AS zoom_password,
             COALESCE(zm.start_time, c.zoom_start_time) AS zoom_start_time,
             COALESCE(zm.duration, c.zoom_duration) AS zoom_duration,
+            COALESCE(bjc.is_enabled, 1) AS join_enabled,
+            bjc.lock_reason AS join_lock_reason,
+            bjc.locked_at AS join_locked_at,
+            bjc.enabled_at AS join_enabled_at,
+            bjc.disabled_at AS join_disabled_at,
             zm.updated_at AS zoom_updated_at
 
         FROM bookings b
@@ -115,6 +122,9 @@ const getMyBookings = async (userId) => {
 
         LEFT JOIN zoom_meetings zm
             ON zm.booking_id = b.id
+
+        LEFT JOIN booking_join_controls bjc
+            ON bjc.booking_id = b.id
 
         WHERE b.user_id = ?
 
@@ -148,14 +158,23 @@ const getLatestBookingForUser = async (userId) => {
             c.host_name,
             COALESCE(zm.meeting_id, c.zoom_meeting_id) AS zoom_meeting_id,
             COALESCE(zm.join_url, c.zoom_link) AS zoom_link,
+            COALESCE(zm.start_url, c.zoom_start_url) AS zoom_start_url,
+            COALESCE(zm.password, c.zoom_password) AS zoom_password,
             COALESCE(zm.start_time, c.zoom_start_time) AS zoom_start_time,
             COALESCE(zm.duration, c.zoom_duration) AS zoom_duration,
+            COALESCE(bjc.is_enabled, 1) AS join_enabled,
+            bjc.lock_reason AS join_lock_reason,
+            bjc.locked_at AS join_locked_at,
+            bjc.enabled_at AS join_enabled_at,
+            bjc.disabled_at AS join_disabled_at,
             zm.updated_at AS zoom_updated_at
         FROM bookings b
         INNER JOIN circle_events c
             ON b.circle_id = c.id
         LEFT JOIN zoom_meetings zm
             ON zm.booking_id = b.id
+        LEFT JOIN booking_join_controls bjc
+            ON bjc.booking_id = b.id
         WHERE b.user_id = ?
           AND b.booking_status != 'cancelled'
         ORDER BY b.created_at DESC
@@ -184,12 +203,17 @@ const getAllBookings = async () => {
             c.meeting_date,
             c.start_time,
             c.end_time,
+            COALESCE(zm.password, c.zoom_password) AS zoom_password,
             zm.join_url AS zoom_link,
+            COALESCE(bjc.is_enabled, 1) AS join_enabled,
+            bjc.lock_reason AS join_lock_reason,
+            bjc.locked_at AS join_locked_at,
             zm.updated_at AS zoom_updated_at
         FROM bookings b
         INNER JOIN users u ON b.user_id = u.id
         INNER JOIN circle_events c ON b.circle_id = c.id
         LEFT JOIN zoom_meetings zm ON zm.booking_id = b.id
+        LEFT JOIN booking_join_controls bjc ON bjc.booking_id = b.id
         ORDER BY b.created_at DESC`
     );
 
@@ -320,6 +344,146 @@ const getBookingById = async (bookingId, userId) => {
 
 };
 
+const getBookingJoinContext = async (bookingId, userId = null) => {
+
+    const params = [bookingId];
+    const userClause = userId === null ? "" : " AND b.user_id = ?";
+
+    if (userId !== null) {
+        params.push(userId);
+    }
+
+    const [rows] = await db.execute(
+
+        `SELECT
+            b.id,
+            b.user_id,
+            b.circle_id,
+            b.booking_status,
+            b.notes,
+            b.approved_at,
+            b.created_at,
+            c.title,
+            c.description,
+            c.meeting_date,
+            c.start_time,
+            c.end_time,
+            c.host_name,
+            COALESCE(zm.meeting_id, c.zoom_meeting_id) AS zoom_meeting_id,
+            COALESCE(zm.join_url, c.zoom_link) AS zoom_link,
+            COALESCE(zm.start_url, c.zoom_start_url) AS zoom_start_url,
+            COALESCE(zm.password, c.zoom_password) AS zoom_password,
+            COALESCE(zm.start_time, c.zoom_start_time) AS zoom_start_time,
+            COALESCE(zm.duration, c.zoom_duration) AS zoom_duration,
+            COALESCE(bjc.is_enabled, 1) AS join_enabled,
+            bjc.lock_reason AS join_lock_reason,
+            bjc.locked_at AS join_locked_at,
+            bjc.enabled_at AS join_enabled_at,
+            bjc.disabled_at AS join_disabled_at,
+            bjc.locked_by_user_id AS join_locked_by_user_id,
+            bjc.locked_by_admin_id AS join_locked_by_admin_id,
+            zm.updated_at AS zoom_updated_at
+        FROM bookings b
+        INNER JOIN circle_events c ON b.circle_id = c.id
+        LEFT JOIN zoom_meetings zm ON zm.booking_id = b.id
+        LEFT JOIN booking_join_controls bjc ON bjc.booking_id = b.id
+        WHERE b.id = ?${userClause}
+        LIMIT 1`,
+
+        params
+
+    );
+
+    return rows[0];
+
+};
+
+const setBookingJoinControl = async (connection, bookingId, controlData) => {
+
+    const executor = connection || db;
+
+    await executor.execute(
+
+        `INSERT INTO booking_join_controls
+            (booking_id, is_enabled, locked_by_user_id, locked_by_admin_id, lock_reason, locked_at, enabled_at, disabled_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            is_enabled = VALUES(is_enabled),
+            locked_by_user_id = VALUES(locked_by_user_id),
+            locked_by_admin_id = VALUES(locked_by_admin_id),
+            lock_reason = VALUES(lock_reason),
+            locked_at = VALUES(locked_at),
+            enabled_at = VALUES(enabled_at),
+            disabled_at = VALUES(disabled_at)` ,
+
+        [
+            bookingId,
+            controlData.is_enabled ? 1 : 0,
+            controlData.locked_by_user_id || null,
+            controlData.locked_by_admin_id || null,
+            controlData.lock_reason || null,
+            controlData.locked_at || null,
+            controlData.enabled_at || null,
+            controlData.disabled_at || null,
+        ]
+
+    );
+
+};
+
+const createBookingJoinLog = async (connection, logData) => {
+
+    const executor = connection || db;
+
+    await executor.execute(
+
+        `INSERT INTO booking_join_logs
+            (booking_id, user_id, event_type, event_source, status, message, ip_address, user_agent)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)` ,
+
+        [
+            logData.booking_id,
+            logData.user_id || null,
+            logData.event_type,
+            logData.event_source,
+            logData.status,
+            logData.message || null,
+            logData.ip_address || null,
+            logData.user_agent || null,
+        ]
+
+    );
+
+};
+
+const getBookingJoinLogsByBookingId = async (bookingId, limit = 50) => {
+
+    const [rows] = await db.execute(
+
+        `SELECT
+            id,
+            booking_id,
+            user_id,
+            event_type,
+            event_source,
+            status,
+            message,
+            ip_address,
+            user_agent,
+            created_at
+         FROM booking_join_logs
+         WHERE booking_id = ?
+         ORDER BY created_at DESC
+         LIMIT ?`,
+
+        [bookingId, Number(limit)]
+
+    );
+
+    return rows;
+
+};
+
 
 
 
@@ -338,6 +502,10 @@ module.exports = {
     getCircleDetails,
     updateCircleZoomConfig,
     cancelBooking,
-    getBookingById
+    getBookingById,
+    getBookingJoinContext,
+    setBookingJoinControl,
+    createBookingJoinLog,
+    getBookingJoinLogsByBookingId
 };
    
