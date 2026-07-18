@@ -210,8 +210,6 @@ const updateBookingStatus = async ({ bookingId, status, reason, adminId }) => {
                 throw new Error("Zoom meeting is not configured for this circle.");
             }
 
-            await bookingModel.incrementBookedMembers(connection, bookingId);
-
             await zoomMeetingModel.upsertZoomMeetingForBooking(connection, {
                 booking_id: bookingId,
                 meeting_id: circle.zoom_meeting_id,
@@ -223,10 +221,6 @@ const updateBookingStatus = async ({ bookingId, status, reason, adminId }) => {
                 duration: circle.zoom_duration,
             });
         } else {
-            if (booking.booking_status === "approved") {
-                await bookingModel.decrementBookedMembers(connection, booking.circle_id);
-            }
-
             await zoomMeetingModel.deleteZoomMeetingByBookingId(connection, bookingId);
         }
 
@@ -289,11 +283,6 @@ const cancelBooking = async (
             connection,
             bookingId,
             userId
-        );
-
-        await bookingModel.decrementBookedMembers(
-            connection,
-            booking.circle_id
         );
 
         await connection.commit();

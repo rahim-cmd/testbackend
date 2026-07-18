@@ -33,7 +33,7 @@ const getCircleById = async (circleId) => {
             status,
             booking_open,
             max_members,
-            booked_members,
+            COALESCE(booking_counts.booked_members, 0) AS booked_members,
             title,
             description,
             meeting_date,
@@ -46,6 +46,12 @@ const getCircleById = async (circleId) => {
             zoom_start_time,
             zoom_duration
         FROM circle_events
+        LEFT JOIN (
+            SELECT circle_id, COUNT(*) AS booked_members
+            FROM bookings
+            WHERE booking_status = 'approved'
+            GROUP BY circle_id
+        ) booking_counts ON booking_counts.circle_id = circle_events.id
         WHERE id = ?`,
 
         [circleId]
@@ -53,24 +59,6 @@ const getCircleById = async (circleId) => {
     );
 
     return rows[0];
-
-};
-
-const incrementBookedMembers = async (
-    connection,
-    bookingId
-) => {
-
-    await connection.execute(
-
-        `UPDATE circle_events ce
-         JOIN bookings b ON b.circle_id = ce.id
-         SET ce.booked_members = ce.booked_members + 1
-         WHERE b.id = ?`,
-
-        [bookingId]
-
-    );
 
 };
 
@@ -269,23 +257,6 @@ const cancelBooking = async (connection, bookingId, userId) => {
 
 };
 
-const decrementBookedMembers = async (
-    connection,
-    circleId
-) => {
-
-    await connection.execute(
-
-        `UPDATE circle_events
-         SET booked_members = booked_members - 1
-         WHERE id = ?`,
-
-        [circleId]
-
-    );
-
-};
-
 const getBookingById = async (bookingId, userId) => {
 
     const [rows] = await db.execute(
@@ -318,7 +289,6 @@ module.exports = {
     createBooking,
     getCircleById,
     getExistingBooking,
-    incrementBookedMembers,
     getMyBookings,
     getAllBookings,
     updateBookingStatus,
@@ -327,7 +297,6 @@ module.exports = {
     getCircleDetails,
     updateCircleZoomConfig,
     cancelBooking,
-    decrementBookedMembers,
     getBookingById
 };
    

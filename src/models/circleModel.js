@@ -1,5 +1,14 @@
 const db = require("../config/db");
 
+const bookedMembersJoin = `
+  LEFT JOIN (
+    SELECT circle_id, COUNT(*) AS booked_members
+    FROM bookings
+    WHERE booking_status = 'approved'
+    GROUP BY circle_id
+  ) booking_counts ON booking_counts.circle_id = circle_events.id
+`;
+
 const createCircle = async (circle) => {
   const [result] = await db.execute(
     `INSERT INTO circle_events
@@ -59,13 +68,14 @@ const getUpcomingCircles = async () => {
             start_time,
             end_time,
             max_members,
-            booked_members,
+            COALESCE(booking_counts.booked_members, 0) AS booked_members,
             zoom_link,
             zoom_meeting_id,
             zoom_start_time,
             zoom_duration,
             host_name
         FROM circle_events
+          ${bookedMembersJoin}
         WHERE
             status = 'scheduled'
             AND booking_open = 1
@@ -86,7 +96,7 @@ const getAllCircles = async () => {
             start_time,
             end_time,
             max_members,
-            booked_members,
+            COALESCE(booking_counts.booked_members, 0) AS booked_members,
             zoom_link,
             zoom_meeting_id,
             zoom_start_url,
@@ -99,6 +109,7 @@ const getAllCircles = async () => {
             created_by,
             created_at
         FROM circle_events
+          ${bookedMembersJoin}
         ORDER BY meeting_date DESC, start_time DESC`,
   );
 
@@ -115,7 +126,7 @@ const getCircleById = async (id) => {
             start_time,
             end_time,
             max_members,
-            booked_members,
+            COALESCE(booking_counts.booked_members, 0) AS booked_members,
             zoom_link,
             zoom_meeting_id,
             zoom_start_url,
@@ -128,6 +139,7 @@ const getCircleById = async (id) => {
             created_by,
             created_at
         FROM circle_events
+          ${bookedMembersJoin}
         WHERE id = ?
         LIMIT 1`,
     [id],
