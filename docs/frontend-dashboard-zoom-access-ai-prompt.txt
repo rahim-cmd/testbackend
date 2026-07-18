@@ -1,9 +1,24 @@
 START_PROMPT
 
-You are updating the frontend of the Circlia booking dashboard.
+You are updating the frontend of the Circlia booking dashboard in a separate frontend repository.
 
 Goal:
 Update the user dashboard and admin screens to support dashboard-only Zoom access, password display, join window control, and admin enable/disable actions.
+
+Important project context:
+1) Backend and frontend are in separate repositories.
+2) Backend is deployed separately from frontend.
+3) Frontend is currently using a remote backend base URL.
+4) Before testing locally, make sure the frontend API base URL points to the intended backend environment.
+5) Do not hardcode production URLs.
+
+Environment setup requirements:
+1) Detect the existing frontend env variable used for API base URL.
+2) Support local testing with: http://localhost:5000/api/v1
+3) Preserve production configuration for deployed builds.
+4) If the app uses Vite, likely env name is `VITE_API_URL` or similar.
+5) If the app uses Next.js, likely env name is `NEXT_PUBLIC_API_URL` or similar.
+6) Do not break existing auth token handling.
 
 Backend rules:
 1) Do not show a direct Zoom link in email.
@@ -23,6 +38,12 @@ API expectations:
 5) GET /bookings/:id/join/logs
 6) PUT /bookings/:id/join/control
 
+Important backend response notes:
+1) `meeting_date` now comes as a plain date string in `YYYY-MM-DD` format.
+2) `approved_at`, `created_at`, `zoom_start_time`, and `zoom_updated_at` come as datetime strings.
+3) `current_booking` is available on GET /auth/profile.
+4) Dashboard may use either `/auth/profile` or `/bookings/my`, but it must correctly support the new fields from both.
+
 Dashboard fields to use from booking responses:
 - booking_status
 - notes
@@ -41,6 +62,11 @@ Dashboard fields to use from booking responses:
 - join_lock_reason
 - join_locked_at
 
+Recommended dashboard data strategy:
+1) Use `current_booking` from GET /auth/profile for the profile summary card if that screen already depends on profile data.
+2) Use GET /bookings/my for the detailed booking list or detailed dashboard booking card.
+3) Keep both views consistent in how they render status, password, and join availability.
+
 User dashboard behavior:
 1) Show booking card with current booking status.
 2) Show Zoom meeting ID and Zoom password when the booking is approved.
@@ -49,9 +75,20 @@ User dashboard behavior:
 5) Disable the Join Meeting button when can_join is false or join_enabled is false.
 6) Display join_message or join_lock_reason as helper text.
 7) On Join click, call POST /bookings/:id/join/start.
-8) On End click, call POST /bookings/:id/join/end.
-9) Re-fetch dashboard data after join start/end.
-10) If booking_status is pending, rejected, or cancelled, show the existing state without join controls.
+8) Only after POST /bookings/:id/join/start succeeds, open the meeting URL.
+9) Prefer opening `zoom_link` for the user join experience. Do not use `zoom_start_url` for normal users.
+10) On End click, call POST /bookings/:id/join/end.
+11) Re-fetch dashboard data after join start/end.
+12) If booking_status is pending, rejected, or cancelled, show the existing state without join controls.
+13) If `zoom_status` is `expired`, do not show an active join state.
+14) If `zoom_link` is null, show the backend message and keep the button disabled.
+
+Join interaction requirements:
+1) Join button click must not bypass the backend logging call.
+2) If POST /bookings/:id/join/start fails, do not open Zoom.
+3) Show toast/snackbar for join start success/failure.
+4) Show toast/snackbar for join end success/failure.
+5) After a successful join start, the UI should reflect the locked state after refetch.
 
 Admin behavior:
 1) Show join control state for each booking.
@@ -61,6 +98,15 @@ Admin behavior:
 5) Show join logs using GET /bookings/:id/join/logs.
 6) Highlight join_started and join_ended events.
 7) Disable admin buttons while the request is pending.
+8) Show whether join is currently enabled or disabled.
+9) Show lock reason and lock time if available.
+10) Re-fetch bookings/logs after admin enable or disable actions.
+
+Admin log UI expectations:
+1) Show log rows with: booking_id, event_type, event_source, status, message, ip_address, user_agent, created_at.
+2) Make it easy to see when a user started a meeting session.
+3) Make it easy to see when a user ended a meeting session.
+4) Make it easy to see when admin manually enabled or disabled access.
 
 Email behavior:
 1) For approved bookings, email must say the booking is approved.
@@ -74,6 +120,27 @@ UI requirements:
 3) Do not guess business rules in the UI.
 4) Render only what backend tells you through join_enabled and can_join.
 5) Make the join state obvious with clear badges or labels.
+6) If the frontend already has a design system, keep the existing visual language.
+7) Do not introduce fake data.
+8) Use real APIs only.
+
+Testing requirements:
+1) Verify local frontend can point to local backend.
+2) Verify production frontend can still point to deployed backend through env config.
+3) Test a user with no booking.
+4) Test a user with pending booking.
+5) Test a user with approved booking.
+6) Test approved booking when `can_join` is false.
+7) Test approved booking when `can_join` is true.
+8) Test admin enable/disable flow.
+9) Test join log rendering.
+
+Deliverables:
+1) Update all necessary frontend files.
+2) List changed frontend files.
+3) Explain which env variable controls the API base URL.
+4) Provide run steps for local testing.
+5) Do not leave TODO placeholders for the core join access flow.
 
 Acceptance criteria:
 1) User can see Zoom password on the dashboard after approval.
@@ -82,5 +149,6 @@ Acceptance criteria:
 4) Admin can enable/disable join access.
 5) Join and logout attempts are logged server-side.
 6) Approved email does not expose the direct Zoom link.
+7) Frontend works correctly whether it uses local backend or deployed backend, as long as the API base URL is configured correctly.
 
 END_PROMPT

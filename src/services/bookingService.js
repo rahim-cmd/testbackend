@@ -5,6 +5,50 @@ const { createZoomMeeting } = require("./zoomService");
 const { sendBookingStatusEmail } = require("./emailService");
 const { isWithinJoinWindow } = require("../utils/timezone");
 
+const formatDateValue = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === "string") {
+        return value.length >= 10 ? value.slice(0, 10) : value;
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return value.toISOString().slice(0, 10);
+    }
+
+    return value;
+};
+
+const formatDateTimeValue = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === "string") {
+        return value.replace("T", " ").slice(0, 19);
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return value.toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    return value;
+};
+
+const normalizeBookingDates = (booking) => ({
+    ...booking,
+    meeting_date: formatDateValue(booking.meeting_date),
+    approved_at: formatDateTimeValue(booking.approved_at),
+    created_at: formatDateTimeValue(booking.created_at),
+    zoom_start_time: formatDateTimeValue(booking.zoom_start_time),
+    zoom_updated_at: formatDateTimeValue(booking.zoom_updated_at),
+    join_locked_at: formatDateTimeValue(booking.join_locked_at),
+    join_enabled_at: formatDateTimeValue(booking.join_enabled_at),
+    join_disabled_at: formatDateTimeValue(booking.join_disabled_at),
+});
+
 const buildZoomPresentation = (booking) => {
     const result = {
         zoom_link: null,
@@ -168,10 +212,14 @@ const getMyBookings = async (userId) => {
 
     const bookings = await bookingModel.getMyBookings(userId);
 
-    return bookings.map((booking) => ({
-        ...booking,
-        ...buildZoomPresentation(booking),
-    }));
+    return bookings.map((booking) => {
+        const normalizedBooking = normalizeBookingDates(booking);
+
+        return {
+            ...normalizedBooking,
+            ...buildZoomPresentation(normalizedBooking),
+        };
+    });
 
 };
 

@@ -5,6 +5,50 @@ const bookingModel = require("../models/bookingModel");
 const { signToken } = require("../utils/jwt");
 const { isWithinJoinWindow } = require("../utils/timezone");
 
+const formatDateValue = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === "string") {
+        return value.length >= 10 ? value.slice(0, 10) : value;
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return value.toISOString().slice(0, 10);
+    }
+
+    return value;
+};
+
+const formatDateTimeValue = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    if (typeof value === "string") {
+        return value.replace("T", " ").slice(0, 19);
+    }
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return value.toISOString().slice(0, 19).replace("T", " ");
+    }
+
+    return value;
+};
+
+const normalizeBookingDates = (booking) => ({
+    ...booking,
+    meeting_date: formatDateValue(booking.meeting_date),
+    approved_at: formatDateTimeValue(booking.approved_at),
+    created_at: formatDateTimeValue(booking.created_at),
+    zoom_start_time: formatDateTimeValue(booking.zoom_start_time),
+    zoom_updated_at: formatDateTimeValue(booking.zoom_updated_at),
+    join_locked_at: formatDateTimeValue(booking.join_locked_at),
+    join_enabled_at: formatDateTimeValue(booking.join_enabled_at),
+    join_disabled_at: formatDateTimeValue(booking.join_disabled_at),
+});
+
 const registerUser = async (userData) => {
 
     // Check existing email
@@ -185,29 +229,30 @@ const getProfile = async (userId) => {
         };
     }
 
-    const zoomPresentation = buildZoomPresentation(currentBooking);
+    const normalizedBooking = normalizeBookingDates(currentBooking);
+    const zoomPresentation = buildZoomPresentation(normalizedBooking);
 
     return {
         ...user,
         current_booking: {
-            id: currentBooking.id,
-            circle_id: currentBooking.circle_id,
-            booking_status: currentBooking.booking_status,
-            notes: currentBooking.notes,
-            approved_at: currentBooking.approved_at,
-            created_at: currentBooking.created_at,
-            title: currentBooking.title,
-            description: currentBooking.description,
-            meeting_date: currentBooking.meeting_date,
-            start_time: currentBooking.start_time,
-            end_time: currentBooking.end_time,
-            host_name: currentBooking.host_name,
-            zoom_meeting_id: currentBooking.zoom_meeting_id,
+            id: normalizedBooking.id,
+            circle_id: normalizedBooking.circle_id,
+            booking_status: normalizedBooking.booking_status,
+            notes: normalizedBooking.notes,
+            approved_at: normalizedBooking.approved_at,
+            created_at: normalizedBooking.created_at,
+            title: normalizedBooking.title,
+            description: normalizedBooking.description,
+            meeting_date: normalizedBooking.meeting_date,
+            start_time: normalizedBooking.start_time,
+            end_time: normalizedBooking.end_time,
+            host_name: normalizedBooking.host_name,
+            zoom_meeting_id: normalizedBooking.zoom_meeting_id,
             zoom_link: zoomPresentation.zoom_link,
             zoom_password: zoomPresentation.zoom_password,
-            zoom_start_time: currentBooking.zoom_start_time,
-            zoom_duration: currentBooking.zoom_duration,
-            zoom_updated_at: currentBooking.zoom_updated_at,
+            zoom_start_time: normalizedBooking.zoom_start_time,
+            zoom_duration: normalizedBooking.zoom_duration,
+            zoom_updated_at: normalizedBooking.zoom_updated_at,
             join_enabled: zoomPresentation.join_enabled,
             can_join: zoomPresentation.can_join,
             join_message: zoomPresentation.join_message,
@@ -215,7 +260,7 @@ const getProfile = async (userId) => {
             join_locked_at: zoomPresentation.join_locked_at,
             ...zoomPresentation,
         },
-        current_booking_status: currentBooking.booking_status,
+        current_booking_status: normalizedBooking.booking_status,
         current_booking_message: zoomPresentation.zoom_message,
     };
 };
