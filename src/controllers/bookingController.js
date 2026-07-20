@@ -249,6 +249,28 @@ const updateJoinControl = async (req, res) => {
     }
 };
 
+const updateCircleJoinControl = async (req, res) => {
+    try {
+        const result = await bookingService.setCircleJoinControl({
+            circleId: req.params.circleId,
+            isEnabled: req.body.is_enabled,
+            adminId: req.user.id,
+            reason: req.body.reason,
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Circle join control updated successfully.",
+            data: result,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 const getJoinLogs = async (req, res) => {
     try {
         const logs = await bookingService.getMyBookingJoinLogs(req.params.id);
@@ -278,6 +300,7 @@ module.exports = {
     startJoinSession,
     endJoinSession,
     updateJoinControl,
+    updateCircleJoinControl,
     getJoinLogs
 
 };

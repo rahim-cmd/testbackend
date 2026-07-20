@@ -192,6 +192,8 @@ const getAllBookings = async () => {
     const [rows] = await db.execute(
         `SELECT
             b.id,
+            c.id AS circle_id,
+            c.title AS circle_title,
             b.booking_status,
             b.notes,
             b.approved_at,
@@ -235,6 +237,15 @@ const getBookingByIdForAdmin = async (bookingId) => {
     const [rows] = await db.execute(
         `SELECT id, circle_id, booking_status FROM bookings WHERE id = ? LIMIT 1`,
         [bookingId]
+    );
+
+    return rows[0];
+};
+
+const getCircleByIdForAdmin = async (circleId) => {
+    const [rows] = await db.execute(
+        `SELECT id, title FROM circle_events WHERE id = ? LIMIT 1`,
+        [circleId]
     );
 
     return rows[0];
@@ -456,6 +467,18 @@ const createBookingJoinLog = async (connection, logData) => {
 
 };
 
+const getBookingIdsByCircleId = async (circleId) => {
+    const [rows] = await db.execute(
+        `SELECT id
+         FROM bookings
+         WHERE circle_id = ?
+           AND booking_status != 'cancelled'`,
+        [circleId]
+    );
+
+    return rows.map((row) => row.id);
+};
+
 const getBookingJoinLogsByBookingId = async (bookingId, limit = 50) => {
 
     const [rows] = await db.execute(
@@ -498,6 +521,7 @@ module.exports = {
     getAllBookings,
     updateBookingStatus,
     getBookingByIdForAdmin,
+    getCircleByIdForAdmin,
     getBookingUser,
     getCircleDetails,
     updateCircleZoomConfig,
@@ -506,6 +530,7 @@ module.exports = {
     getBookingJoinContext,
     setBookingJoinControl,
     createBookingJoinLog,
+    getBookingIdsByCircleId,
     getBookingJoinLogsByBookingId
 };
    

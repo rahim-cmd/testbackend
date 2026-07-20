@@ -39,4 +39,7 @@ app.use("/api/v1/bookings", bookingRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/zoom", zoomRoutes);
 
+// Backward-compatible route aliases for legacy frontend paths.
+app.use("/api/bookings", bookingRoutes);
+
 module.exports = app;

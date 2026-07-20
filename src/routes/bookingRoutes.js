@@ -104,6 +104,16 @@ router.put(
 
 );
 
+router.put(
+
+    "/circle/:circleId/join/control",
+
+    authenticate,
+    authenticate.isAdmin,
+    bookingController.updateCircleJoinControl
+
+);
+
 router.get(
 
     "/:id/join/logs",

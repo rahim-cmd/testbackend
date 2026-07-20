@@ -3,7 +3,6 @@ const bcrypt = require("bcryptjs");
 const userModel = require("../models/userModel");
 const bookingModel = require("../models/bookingModel");
 const { signToken } = require("../utils/jwt");
-const { isWithinJoinWindow } = require("../utils/timezone");
 
 const formatDateValue = (value) => {
     if (!value) {
@@ -166,30 +165,10 @@ const buildZoomPresentation = (booking) => {
         };
     }
 
-    const startTime = booking.zoom_start_time ? new Date(booking.zoom_start_time) : null;
-    const duration = Number(booking.zoom_duration || 0);
-    const expiresAt = startTime && duration > 0
-        ? new Date(startTime.getTime() + duration * 60000)
-        : null;
-
-    if (expiresAt && Date.now() > expiresAt.getTime()) {
-        return {
-            ...result,
-            zoom_status: "expired",
-            zoom_message: "Meeting time has passed. This link is no longer active.",
-            join_message: "Meeting time has passed. This link is no longer active.",
-        };
-    }
-
     const wasUpdated = booking.zoom_updated_at && booking.approved_at
         ? new Date(booking.zoom_updated_at).getTime() > new Date(booking.approved_at).getTime()
         : false;
 
-    const joinWindowOpen = isWithinJoinWindow({
-        meeting_date: booking.meeting_date,
-        start_time: booking.start_time,
-        end_time: booking.end_time,
-    });
     const joinEnabled = Boolean(Number(booking.join_enabled ?? 1));
 
     return {
@@ -199,10 +178,10 @@ const buildZoomPresentation = (booking) => {
         zoom_message: wasUpdated
             ? "Meeting details were updated. Please use the latest link below."
             : "Your meeting link is ready.",
-        can_join: joinEnabled && joinWindowOpen,
+        can_join: joinEnabled,
         join_message: !joinEnabled
             ? (booking.join_lock_reason || "Join access is disabled by admin.")
-            : (joinWindowOpen ? "Join is available from your dashboard." : "Join will be enabled 2 minutes before the meeting starts."),
+            : "Join is available from your dashboard.",
         join_enabled: joinEnabled,
         join_lock_reason: booking.join_lock_reason || null,
         join_locked_at: booking.join_locked_at || null,

@@ -1,0 +1,119 @@
+Important backend requirement
+
+Backend implementation prompt: bulk join access control (circle level)
+
+Context
+- Frontend already has two admin control layers on Admin Bookings page:
+  1) Per-booking join control (working)
+  2) Circle-level bulk join control (UI ready)
+- Current blocker: booking payload often does not include circle_id, so frontend cannot execute bulk endpoint reliably for a specific circle.
+
+Primary goal
+Implement backend support so admin can enable/disable Join button for all users of one circle in a single action, while keeping per-booking control intact.
+
+Required behavior
+1) Join access must be fully manual and admin-controlled.
+2) No automatic frontend/backend disable due to meeting end time.
+3) User can join only when all conditions are true:
+   - booking_status = approved
+   - join_enabled = true
+   - zoom_link exists
+4) Pending/rejected/cancelled bookings must remain non-joinable.
+
+Required APIs
+A) Existing per-booking control (keep compatible)
+- Method: PUT
+- URL: /api/v1/bookings/:id/join/control
+- Auth: Admin token required
+- Body:
+  {
+    "is_enabled": true,
+    "reason": "optional text"
+  }
+- Response:
+  {
+    "id": 123,
+    "join_enabled": true
+  }
+
+B) New/confirmed circle-level bulk control
+- Method: PUT
+- URL: /api/v1/bookings/circle/:circleId/join/control
+- Auth: Admin token required
+- Body:
+  {
+    "is_enabled": false,
+    "reason": "optional text"
+  }
+- Response:
+  {
+    "circle_id": 10,
+    "join_enabled": false,
+    "affected_bookings": 24
+  }
+
+Critical payload contract (must fix)
+For Admin Bookings list payload (/api/v1/bookings/admin), each booking item must include:
+- id
+- circle_id (mandatory for bulk operations)
+- circle_title
+- booking_status
+- join_enabled
+- can_join (optional, but if present should align with manual control policy)
+- join_message or join_lock_reason (when applicable)
+
+Important note
+- Frontend bulk section is visible.
+- If circle_id is missing, bulk actions are blocked intentionally.
+- To fully enable bulk controls, backend must always send valid circle_id for every booking row.
+
+Business logic expectations
+1) Per-booking toggle updates only that booking.
+2) Circle bulk toggle updates all relevant bookings for the given circle_id.
+3) Define which statuses are affected by bulk update (recommended: approved bookings at minimum; optionally pending if product requires).
+4) Return accurate affected_bookings count.
+5) Persist reason and admin metadata for audit (recommended fields: updated_by, updated_at, reason).
+
+Suggested SQL/domain rules
+- join_enabled boolean column on bookings (or equivalent relation) should be source of truth.
+- can_join should be derived from approved status + join_enabled + zoom_link existence.
+- Remove end-time auto-expiry from join availability rules if still present.
+
+Error handling requirements
+- 401 when token invalid/expired
+- 403 when non-admin tries action
+- 404 when circle or booking not found
+- 422 for invalid request body
+- 500 for unexpected server error
+
+Frontend integration expectations
+- Frontend already calls:
+  - PUT /api/v1/bookings/:id/join/control
+  - PUT /api/v1/bookings/circle/:circleId/join/control
+- Frontend already handles:
+  - loading states
+  - duplicate-click prevention
+  - optimistic per-user update rollback
+  - readable 401/403/500 messages
+
+Acceptance criteria
+1) Admin can disable join for all users in one circle with one click.
+2) Admin can re-enable join for all users in one circle with one click.
+3) Per-user toggle continues to work.
+4) User dashboard join button does not auto-disable by meeting end time.
+5) Bulk changes are reflected in user dashboard after refresh.
+6) circle_id is consistently present in admin bookings payload.
+
+Testing checklist
+1) Single booking: enable then disable join.
+2) Circle bulk disable: verify multiple users become non-joinable.
+3) Circle bulk enable: verify multiple users become joinable.
+4) Past meeting end time: join behavior still follows manual join_enabled policy.
+5) Pending/rejected/cancelled remain non-joinable.
+6) Unauthorized admin endpoints return correct 401/403.
+
+Deliverables requested from backend team
+1) Endpoint implementation/confirmation for circle bulk control.
+2) Admin bookings payload fix to always include circle_id.
+3) Data migration/update if join_enabled field is missing or inconsistent.
+4) Short API examples from real responses for frontend validation.
