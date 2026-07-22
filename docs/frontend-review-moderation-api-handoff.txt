@@ -1,0 +1,255 @@
+Frontend Handoff: Circle Meeting Reviews + Admin Approval Flow
+
+Goal
+- User dashboard par user rating/review de sake.
+- Homepage par review tabhi show ho jab admin approve kare.
+- Review section homepage me Meet the Founder section ke niche render ho.
+
+Base URLs
+- Primary: /api/v1/reviews
+- Legacy alias: /api/reviews
+
+========================================
+1) USER DASHBOARD APIs
+========================================
+
+A) Create/Update review for a booking
+- Method: POST
+- URL: /api/v1/reviews/bookings/:bookingId
+- Auth: Bearer token required
+- Rule: sirf wahi user review de sakta hai jisne usi booking ka meeting join kiya ho and booking approved ho.
+
+Request Body:
+{
+  "rating": 4,
+  "review_text": "Session was insightful and practical.",
+  "is_public": true
+}
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Review saved successfully.",
+  "data": {
+    "id": 12,
+    "booking_id": 45,
+    "circle_id": 10,
+    "user_id": 7,
+    "rating": 4,
+    "review_text": "Session was insightful and practical.",
+    "is_public": 1,
+    "review_status": "pending",
+    "moderated_by_admin_id": null,
+    "moderated_at": null,
+    "moderation_note": null,
+    "created_at": "2026-07-23T09:30:00.000Z",
+    "updated_at": "2026-07-23T09:30:00.000Z"
+  }
+}
+
+Important:
+- Har nayi create/update ke baad review_status automatically pending ho jata hai.
+- Dashboard me badge dikhao: Pending admin approval.
+
+Common Errors:
+- 401: token invalid/expired
+- 422: validation fail ya user eligible nahi (join/approved condition fail)
+- 404: booking not found for this user
+- 500: server error
+
+
+B) Get my reviews
+- Method: GET
+- URL: /api/v1/reviews/me
+- Auth: Bearer token required
+
+Success Response (200):
+{
+  "success": true,
+  "data": [
+    {
+      "id": 12,
+      "booking_id": 45,
+      "circle_id": 10,
+      "rating": 4,
+      "review_text": "Session was insightful and practical.",
+      "is_public": 1,
+      "review_status": "pending",
+      "moderated_by_admin_id": null,
+      "moderated_at": null,
+      "moderation_note": null,
+      "circle_title": "Career Growth Circle",
+      "meeting_date": "2026-07-20",
+      "start_time": "19:00:00",
+      "end_time": "20:00:00",
+      "created_at": "2026-07-23T09:30:00.000Z",
+      "updated_at": "2026-07-23T09:30:00.000Z"
+    }
+  ]
+}
+
+
+C) Delete my review
+- Method: DELETE
+- URL: /api/v1/reviews/:id
+- Auth: Bearer token required
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Review deleted successfully."
+}
+
+========================================
+2) ADMIN DASHBOARD APIs (MODERATION)
+========================================
+
+A) Get reviews for moderation queue
+- Method: GET
+- URL: /api/v1/reviews/admin?status=pending&limit=50&circle_id=10
+- Auth: Admin bearer token required
+
+Query Params:
+- status (optional): pending | approved | rejected
+- limit (optional): 1 to 200
+- circle_id (optional): positive integer
+
+Success Response (200):
+{
+  "success": true,
+  "data": [
+    {
+      "id": 12,
+      "booking_id": 45,
+      "circle_id": 10,
+      "user_id": 7,
+      "rating": 4,
+      "review_text": "Session was insightful and practical.",
+      "is_public": 1,
+      "review_status": "pending",
+      "moderated_by_admin_id": null,
+      "moderated_at": null,
+      "moderation_note": null,
+      "first_name": "Aman",
+      "last_name": "Khan",
+      "email": "aman@example.com",
+      "reviewer_name": "Aman Khan",
+      "circle_title": "Career Growth Circle",
+      "meeting_date": "2026-07-20",
+      "created_at": "2026-07-23T09:30:00.000Z",
+      "updated_at": "2026-07-23T09:30:00.000Z"
+    }
+  ]
+}
+
+
+B) Approve/Reject a review
+- Method: PUT
+- URL: /api/v1/reviews/:id/moderation
+- Auth: Admin bearer token required
+
+Approve Body:
+{
+  "status": "approved",
+  "note": "Looks good for homepage."
+}
+
+Reject Body:
+{
+  "status": "rejected",
+  "note": "Reason for rejection"
+}
+
+Success Response (200):
+{
+  "success": true,
+  "message": "Review approved successfully.",
+  "data": {
+    "id": 12,
+    "review_status": "approved",
+    "moderated_by_admin_id": 2,
+    "moderated_at": "2026-07-23T09:45:00.000Z",
+    "moderation_note": "Looks good for homepage."
+  }
+}
+
+Common Errors:
+- 401: unauthorized
+- 403: non-admin access denied
+- 422: invalid status/body
+- 404: review not found
+
+========================================
+3) HOMEPAGE API
+========================================
+
+Get approved public reviews for homepage
+- Method: GET
+- URL: /api/v1/reviews/homepage?limit=12
+- Auth: Not required
+
+Alternative dedicated endpoint (approved reviews only)
+- Method: GET
+- URL: /api/v1/reviews/approved?limit=12&circle_id=10
+- Auth: Not required
+
+Important:
+- Backend sirf approved + public reviews return karta hai:
+  - is_public = 1
+  - review_status = approved
+
+Success Response (200):
+{
+  "success": true,
+  "data": [
+    {
+      "id": 12,
+      "booking_id": 45,
+      "circle_id": 10,
+      "rating": 5,
+      "review_text": "Amazing circle, very practical and helpful.",
+      "circle_title": "Career Growth Circle",
+      "meeting_date": "2026-07-20",
+      "reviewer_name": "Aman Khan",
+      "created_at": "2026-07-23T09:45:00.000Z",
+      "updated_at": "2026-07-23T09:45:00.000Z"
+    }
+  ]
+}
+
+UI Rule:
+- Agar data array empty ho, homepage review section render mat karo.
+
+========================================
+4) FRONTEND UI IMPLEMENTATION CHECKLIST
+========================================
+
+User Dashboard:
+- Eligible booking cards par Rate this meeting CTA.
+- Form fields: rating stars, review text, public toggle.
+- Save ke baad review_status badge show karo: pending/approved/rejected.
+- Pending status par helper text show karo: Waiting for admin approval.
+
+Admin Dashboard:
+- Reviews Moderation tab/page banao.
+- Default filter pending rakho.
+- Row actions: Approve, Reject.
+- Approve/Reject success ke baad row instantly refresh/remove.
+
+Homepage:
+- Reviews section ko Meet the Founder ke niche place karo.
+- Existing website ke same look and feel follow karo:
+  - same color tokens
+  - same card style, radius, shadow
+  - same spacing and responsive behavior
+
+========================================
+5) QUICK ENDPOINT LIST
+========================================
+- POST   /api/v1/reviews/bookings/:bookingId
+- GET    /api/v1/reviews/me
+- DELETE /api/v1/reviews/:id
+- GET    /api/v1/reviews/admin
+- PUT    /api/v1/reviews/:id/moderation
+- GET    /api/v1/reviews/homepage
+- GET    /api/v1/reviews/approved

@@ -112,6 +112,70 @@ const ensureZoomEventLogTable = async (connection) => {
     );
 };
 
+const ensureBookingReviewTable = async (connection) => {
+    await connection.execute(
+        `CREATE TABLE IF NOT EXISTS booking_reviews (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            booking_id INT NOT NULL,
+            circle_id INT NOT NULL,
+            user_id INT NOT NULL,
+            rating TINYINT UNSIGNED NOT NULL,
+            review_text TEXT NULL,
+            is_public TINYINT(1) NOT NULL DEFAULT 1,
+            review_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending',
+            moderated_by_admin_id INT NULL,
+            moderated_at DATETIME NULL,
+            moderation_note TEXT NULL,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY uk_booking_reviews_booking_user (booking_id, user_id),
+            INDEX idx_booking_reviews_circle_id (circle_id),
+            INDEX idx_booking_reviews_user_id (user_id),
+            INDEX idx_booking_reviews_status (review_status),
+            INDEX idx_booking_reviews_public_created (is_public, created_at)
+        )`
+    );
+
+    const requiredColumns = [
+        {
+            name: "review_status",
+            definition: "ADD COLUMN review_status ENUM('pending', 'approved', 'rejected') NOT NULL DEFAULT 'pending' AFTER is_public",
+        },
+        {
+            name: "moderated_by_admin_id",
+            definition: "ADD COLUMN moderated_by_admin_id INT NULL AFTER review_status",
+        },
+        {
+            name: "moderated_at",
+            definition: "ADD COLUMN moderated_at DATETIME NULL AFTER moderated_by_admin_id",
+        },
+        {
+            name: "moderation_note",
+            definition: "ADD COLUMN moderation_note TEXT NULL AFTER moderated_at",
+        },
+    ];
+
+    for (const column of requiredColumns) {
+        const [rows] = await connection.execute(
+            `SHOW COLUMNS FROM booking_reviews LIKE '${column.name}'`
+        );
+
+        if (rows.length === 0) {
+            await connection.execute(`ALTER TABLE booking_reviews ${column.definition}`);
+        }
+    }
+
+    const [indexes] = await connection.execute("SHOW INDEX FROM booking_reviews");
+    const hasStatusIndex = indexes.some((index) => index.Key_name === "idx_booking_reviews_status");
+
+    if (!hasStatusIndex) {
+        await connection.execute(
+            "ALTER TABLE booking_reviews ADD INDEX idx_booking_reviews_status (review_status)"
+        );
+    }
+};
+
 const ensureZoomSchema = async () => {
     const connection = await db.getConnection();
 
@@ -121,6 +185,7 @@ const ensureZoomSchema = async () => {
         await ensureZoomEventLogTable(connection);
         await ensureBookingJoinControlTable(connection);
         await ensureBookingJoinLogTable(connection);
+        await ensureBookingReviewTable(connection);
     } finally {
         connection.release();
     }

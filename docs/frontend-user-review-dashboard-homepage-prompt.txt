@@ -1,0 +1,150 @@
+Important backend + frontend integration prompt
+
+Feature: user dashboard rating and review for joined circle meetings, with admin approval before homepage display
+
+Context
+- User dashboard review feature is working.
+- New requirement: homepage should show review only after admin approves it from admin dashboard.
+- Section placement requirement: show reviews section below Meet the Founder section on homepage.
+- Maintain same website look and feel (same color palette, spacing system, typography style, shadows, border radius, and button patterns already used in current UI).
+
+Primary goals
+1) User can submit or edit review only for joined approved meeting.
+2) Submitted or edited review goes to pending moderation state.
+3) Admin can approve or reject reviews from admin dashboard.
+4) Homepage must render only approved and public reviews.
+5) If no approved reviews exist, hide this homepage section entirely.
+
+Eligibility and moderation rules
+- Backend remains source of truth.
+- User review create or update sets review_status to pending.
+- Homepage API returns only:
+  - is_public = true
+  - review_status = approved
+
+APIs to integrate
+
+User side:
+1) Save review (create/update)
+- POST /api/v1/reviews/bookings/:bookingId
+- Auth required
+- Body:
+  {
+    "rating": 4,
+    "review_text": "Session was insightful and practical.",
+    "is_public": true
+  }
+- Important: response includes review_status. If pending, show message: Waiting for admin approval.
+
+2) My reviews list
+- GET /api/v1/reviews/me
+- Auth required
+
+3) Delete my review
+- DELETE /api/v1/reviews/:id
+- Auth required
+
+Homepage side:
+4) Approved reviews for homepage
+- GET /api/v1/reviews/homepage?limit=12
+- Public endpoint
+- Optional filter: circle_id
+
+Admin side:
+5) Review moderation list
+- GET /api/v1/reviews/admin?status=pending&limit=50
+- Admin auth required
+- Optional filters: status, circle_id
+
+6) Approve or reject review
+- PUT /api/v1/reviews/:id/moderation
+- Admin auth required
+- Body:
+  {
+    "status": "approved",
+    "note": "Looks good for homepage."
+  }
+  or
+  {
+    "status": "rejected",
+    "note": "Reason text"
+  }
+
+Frontend implementation requirements
+
+A) User Dashboard
+1) For eligible bookings, keep Rate this meeting CTA.
+2) Review form fields:
+- star rating (1-5)
+- review text
+- public toggle
+3) On save/update:
+- call POST upsert API
+- if response review_status is pending, show label: Pending admin approval
+4) On list view, show moderation badge per review:
+- pending
+- approved
+- rejected
+5) Disable duplicate submits while API call is in progress.
+6) Show clear toast/snackbar messages for success and errors.
+
+B) Admin Dashboard Review Moderation
+1) Add a dedicated Reviews Moderation tab/page.
+2) Fetch pending list by default using admin API.
+3) Table/card fields:
+- reviewer_name
+- user email
+- circle_title
+- meeting_date
+- rating
+- review_text
+- is_public
+- current review_status
+4) Actions per row:
+- Approve
+- Reject (with optional reason note)
+5) On moderation success, remove/refresh row from pending list instantly.
+
+C) Homepage Section (below Meet the Founder)
+1) Insert a new section directly below Meet the Founder block.
+2) Section title suggestion:
+- Voices from Our Circle
+3) Data source:
+- GET /api/v1/reviews/homepage?limit=12
+4) Render only when list length > 0.
+5) Card content:
+- star rating
+- review text
+- reviewer name
+- circle title
+- meeting date
+6) Keep exact visual language of website:
+- same base color tokens
+- same background and text contrast style
+- same button and card radius/shadow behavior
+- same spacing scale and responsive breakpoints
+- do not introduce unrelated new theme colors
+
+Error handling requirements
+- 401: route to login or token refresh flow.
+- 403: show access denied for non-admin moderation routes.
+- 422: show inline validation/moderation errors.
+- 404: show not found state when review no longer exists.
+- 500: show generic retry message.
+
+Acceptance criteria
+1) User can submit/update review only for joined approved meeting.
+2) Every new or edited review becomes pending.
+3) Admin can approve/reject from dashboard.
+4) Homepage shows only approved public reviews.
+5) Review section appears below Meet the Founder section.
+6) Section is hidden if no approved reviews.
+7) UI style matches existing site design language.
+
+Deliverables expected from frontend
+1) Updated user dashboard review flow with moderation status badges.
+2) New admin moderation page/tab using provided APIs.
+3) Homepage approved reviews section below Meet the Founder.
+4) API client methods for all review endpoints.
+5) Final list of changed files.
+6) Run/dev/build steps with confirmation.
