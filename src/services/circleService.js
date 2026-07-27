@@ -81,6 +81,19 @@ const notifyApprovedUsers = async ({ circleId, changeType, zoomLink, reason }) =
     );
 };
 
+const toAdminZoomLinks = (circle) => {
+    const participantJoinUrl = circle.zoom_link || null;
+    const hostStartUrl = circle.zoom_start_url || null;
+
+    return {
+        ...circle,
+        // Keep legacy `zoom_link` working for admin dashboards by preferring host start URL.
+        zoom_link: hostStartUrl || participantJoinUrl,
+        zoom_join_url: participantJoinUrl,
+        zoom_host_url: hostStartUrl,
+    };
+};
+
 const createCircle = async (circleData) => {
 
     let zoomMeetingRecord = null;
@@ -144,7 +157,10 @@ const createCircle = async (circleData) => {
     return {
 
         id: circleId,
-        zoom_link: circle.zoom_link,
+        zoom_link: circle.zoom_start_url || circle.zoom_link,
+        zoom_join_url: circle.zoom_link,
+        zoom_host_url: circle.zoom_start_url,
+        zoom_start_url: circle.zoom_start_url,
         zoom_meeting_id: circle.zoom_meeting_id
 
     };
@@ -159,13 +175,21 @@ const getUpcomingCircles = async () => {
 
 const getAllCircles = async () => {
 
-    return await circleModel.getAllCircles();
+    const circles = await circleModel.getAllCircles();
+
+    return circles.map(toAdminZoomLinks);
 
 };
 
 const getCircleById = async (id) => {
 
-    return await circleModel.getCircleById(id);
+    const circle = await circleModel.getCircleById(id);
+
+    if (!circle) {
+        return circle;
+    }
+
+    return toAdminZoomLinks(circle);
 
 };
 
@@ -506,7 +530,10 @@ const getCircleZoomOverview = async (circleId) => {
             start_time: circle.start_time,
             end_time: circle.end_time,
             zoom_meeting_id: circle.zoom_meeting_id,
-            zoom_link: circle.zoom_link,
+            zoom_link: circle.zoom_start_url || circle.zoom_link,
+            zoom_join_url: circle.zoom_link,
+            zoom_host_url: circle.zoom_start_url,
+            zoom_start_url: circle.zoom_start_url,
             zoom_start_time: circle.zoom_start_time,
             zoom_duration: circle.zoom_duration,
         },

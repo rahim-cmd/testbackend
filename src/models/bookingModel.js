@@ -207,6 +207,7 @@ const getAllBookings = async () => {
             c.end_time,
             COALESCE(zm.password, c.zoom_password) AS zoom_password,
             zm.join_url AS zoom_link,
+            COALESCE(zm.start_url, c.zoom_start_url) AS zoom_start_url,
             COALESCE(bjc.is_enabled, 1) AS join_enabled,
             bjc.lock_reason AS join_lock_reason,
             bjc.locked_at AS join_locked_at,

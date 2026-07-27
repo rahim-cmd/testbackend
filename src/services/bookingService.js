@@ -202,7 +202,14 @@ const getMyBookings = async (userId) => {
 };
 
 const getAllBookings = async () => {
-    return await bookingModel.getAllBookings();
+    const bookings = await bookingModel.getAllBookings();
+
+    return bookings.map((booking) => ({
+        ...booking,
+        zoom_link: booking.zoom_start_url || booking.zoom_link || null,
+        zoom_join_url: booking.zoom_link || null,
+        zoom_host_url: booking.zoom_start_url || null,
+    }));
 };
 
 const getMyBookingJoinLogs = async (bookingId, userId) => {
