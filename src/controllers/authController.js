@@ -134,9 +134,107 @@ const login = async (req, res) => {
 
 };
 
+const changePassword = async (req, res) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(422).json({
+      success: false,
+      message: "Validation failed.",
+      errors: errors.array().map((error) => ({
+        field: error.path,
+        message: error.msg,
+      })),
+    });
+  }
+
+  try {
+    const result = await authService.changePassword(
+      req.user.id,
+      req.body.current_password,
+      req.body.new_password
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const forgotPassword = async (req, res) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(422).json({
+      success: false,
+      message: "Validation failed.",
+      errors: errors.array().map((error) => ({
+        field: error.path,
+        message: error.msg,
+      })),
+    });
+  }
+
+  try {
+    const result = await authService.forgotPassword(req.body.email);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const errors = validationResult(req);
+
+  if (!errors.isEmpty()) {
+    return res.status(422).json({
+      success: false,
+      message: "Validation failed.",
+      errors: errors.array().map((error) => ({
+        field: error.path,
+        message: error.msg,
+      })),
+    });
+  }
+
+  try {
+    const result = await authService.resetPassword(
+      req.body.token,
+      req.body.new_password,
+      req.body.otp
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
   getProfile,
   logout,
+  changePassword,
+  forgotPassword,
+  resetPassword,
 };

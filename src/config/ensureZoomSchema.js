@@ -176,6 +176,25 @@ const ensureBookingReviewTable = async (connection) => {
     }
 };
 
+const ensurePasswordResetTokensTable = async (connection) => {
+    await connection.execute(
+        `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            user_id INT NOT NULL,
+            token_hash CHAR(64) NOT NULL,
+            otp_hash CHAR(64) NULL,
+            expires_at DATETIME NOT NULL,
+            used_at DATETIME NULL,
+            created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            INDEX idx_password_reset_user_id (user_id),
+            INDEX idx_password_reset_expires_at (expires_at),
+            INDEX idx_password_reset_used_at (used_at),
+            UNIQUE KEY uk_password_reset_token_hash (token_hash)
+        )`
+    );
+};
+
 const ensureZoomSchema = async () => {
     const connection = await db.getConnection();
 
@@ -186,6 +205,7 @@ const ensureZoomSchema = async () => {
         await ensureBookingJoinControlTable(connection);
         await ensureBookingJoinLogTable(connection);
         await ensureBookingReviewTable(connection);
+        await ensurePasswordResetTokensTable(connection);
     } finally {
         connection.release();
     }

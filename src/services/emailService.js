@@ -21,6 +21,10 @@ const createTransporter = () => {
     });
 };
 
+const getAdminAlertEmail = () => {
+    return process.env.ADMIN_ALERT_EMAIL || "hello.circlia@gmail.com";
+};
+
 const sendBookingStatusEmail = async ({
     to,
     userName,
@@ -107,7 +111,111 @@ const sendZoomMeetingUpdateEmail = async ({
     };
 };
 
+const sendPasswordResetEmail = async ({
+    to,
+    userName,
+    resetLink,
+    otp,
+    expiresInMinutes,
+}) => {
+    const transporter = createTransporter();
+
+    if (!transporter) {
+        return {
+            sent: false,
+            message: "SMTP is not configured. Email was not sent.",
+        };
+    }
+
+    const subject = "Reset your password";
+
+    const text = `Hi ${userName},\n\nWe received a request to reset your password.\n\nReset link: ${resetLink}\n\nOTP (optional verification): ${otp}\n\nThis link expires in ${expiresInMinutes} minutes.\n\nIf you did not request this, you can ignore this email.`;
+
+    const html = `<p>Hi ${userName},</p><p>We received a request to reset your password.</p><p><a href="${resetLink}">Click here to reset password</a></p><p><strong>OTP (optional verification):</strong> ${otp}</p><p>This link expires in <strong>${expiresInMinutes} minutes</strong>.</p><p>If you did not request this, you can ignore this email.</p>`;
+
+    await transporter.sendMail({
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to,
+        subject,
+        text,
+        html,
+    });
+
+    return {
+        sent: true,
+        message: "Email sent successfully.",
+    };
+};
+
+const sendAdminRegistrationAlertEmail = async ({
+    userName,
+    userEmail,
+}) => {
+    const transporter = createTransporter();
+
+    if (!transporter) {
+        return {
+            sent: false,
+            message: "SMTP is not configured. Email was not sent.",
+        };
+    }
+
+    const to = getAdminAlertEmail();
+    const subject = "New user registration on Circlia";
+    const text = `A new user has successfully registered on your website Circlia.\n\nName: ${userName}\nEmail: ${userEmail}`;
+    const html = `<p>A new user has successfully registered on your website <strong>Circlia</strong>.</p><p><strong>Name:</strong> ${userName}<br/><strong>Email:</strong> ${userEmail}</p>`;
+
+    await transporter.sendMail({
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to,
+        subject,
+        text,
+        html,
+    });
+
+    return {
+        sent: true,
+        message: "Admin registration alert sent successfully.",
+    };
+};
+
+const sendAdminBookingAlertEmail = async ({
+    circleTitle,
+    userName,
+    userEmail,
+}) => {
+    const transporter = createTransporter();
+
+    if (!transporter) {
+        return {
+            sent: false,
+            message: "SMTP is not configured. Email was not sent.",
+        };
+    }
+
+    const to = getAdminAlertEmail();
+    const subject = "New booking request on Circlia";
+    const text = `Someone has booked the circle on your website Circlia.\n\nCircle: ${circleTitle}\nUser: ${userName}\nEmail: ${userEmail}`;
+    const html = `<p>Someone has booked a circle on your website <strong>Circlia</strong>.</p><p><strong>Circle:</strong> ${circleTitle}<br/><strong>User:</strong> ${userName}<br/><strong>Email:</strong> ${userEmail}</p>`;
+
+    await transporter.sendMail({
+        from: process.env.EMAIL_FROM || process.env.SMTP_USER,
+        to,
+        subject,
+        text,
+        html,
+    });
+
+    return {
+        sent: true,
+        message: "Admin booking alert sent successfully.",
+    };
+};
+
 module.exports = {
     sendBookingStatusEmail,
     sendZoomMeetingUpdateEmail,
+    sendPasswordResetEmail,
+    sendAdminRegistrationAlertEmail,
+    sendAdminBookingAlertEmail,
 };

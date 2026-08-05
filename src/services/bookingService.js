@@ -2,7 +2,10 @@ const bookingModel = require("../models/bookingModel");
 const db = require("../config/db");
 const zoomMeetingModel = require("../models/zoomMeetingModel");
 const { createZoomMeeting } = require("./zoomService");
-const { sendBookingStatusEmail } = require("./emailService");
+const {
+    sendBookingStatusEmail,
+    sendAdminBookingAlertEmail,
+} = require("./emailService");
 
 const formatDateValue = (value) => {
     if (!value) {
@@ -167,6 +170,22 @@ const createBooking = async (bookingData) => {
             );
 
         await connection.commit();
+
+        try {
+            const bookingUser = await bookingModel.getBookingUser(bookingId);
+            const bookedCircle = await bookingModel.getCircleDetails(bookingId);
+
+            if (bookingUser && bookedCircle) {
+                await sendAdminBookingAlertEmail({
+                    circleTitle: bookedCircle.title,
+                    userName: `${bookingUser.first_name} ${bookingUser.last_name || ""}`.trim(),
+                    userEmail: bookingUser.email,
+                });
+            }
+        } catch (error) {
+            // Booking should remain successful even if notification email fails.
+            console.warn("Admin booking alert email failed:", error.message);
+        }
 
         return {
             id: bookingId

@@ -1,7 +1,13 @@
 const bcrypt = require("bcryptjs");
+const crypto = require("crypto");
 
 const userModel = require("../models/userModel");
 const bookingModel = require("../models/bookingModel");
+const passwordResetModel = require("../models/passwordResetModel");
+const {
+    sendPasswordResetEmail,
+    sendAdminRegistrationAlertEmail,
+} = require("./emailService");
 const { signToken } = require("../utils/jwt");
 
 const formatDateValue = (value) => {
@@ -102,6 +108,16 @@ const registerUser = async (userData) => {
     // Fetch User
 
     const user = await userModel.findUserById(userId);
+
+    try {
+        await sendAdminRegistrationAlertEmail({
+            userName: `${user.first_name} ${user.last_name || ""}`.trim(),
+            userEmail: user.email,
+        });
+    } catch (error) {
+        // Registration should not fail if notification email cannot be sent.
+        console.warn("Admin registration alert email failed:", error.message);
+    }
 
     return {
 
@@ -283,10 +299,140 @@ const loginUser = async (email, password) => {
     };
 };
 
+const changePassword = async (userId, currentPassword, newPassword) => {
+    const user = await userModel.findUserAuthById(userId);
+
+    if (!user) {
+        throw new Error("User not found.");
+    }
+
+    const isCurrentPasswordCorrect = await bcrypt.compare(
+        currentPassword,
+        user.password
+    );
+
+    if (!isCurrentPasswordCorrect) {
+        throw new Error("Current password is incorrect.");
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+
+    if (isSamePassword) {
+        throw new Error("New password cannot be same as current password.");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    const updated = await userModel.updatePasswordById(user.id, hashedPassword);
+
+    if (!updated) {
+        throw new Error("Unable to update password.");
+    }
+
+    await passwordResetModel.revokeActiveResetTokensForUser(user.id);
+
+    return {
+        message: "Password changed successfully.",
+    };
+};
+
+const forgotPassword = async (email) => {
+    const user = await userModel.findUserByEmail(email);
+
+    const successResponse = {
+        message: "If this email is registered, a password reset link has been sent.",
+    };
+
+    if (!user || user.status !== "active") {
+        return successResponse;
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+
+    const expiresInMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_MINUTES || 15);
+    const expiresAtDate = new Date(Date.now() + expiresInMinutes * 60 * 1000);
+    const expiresAtSql = expiresAtDate.toISOString().slice(0, 19).replace("T", " ");
+
+    await passwordResetModel.revokeActiveResetTokensForUser(user.id);
+
+    await passwordResetModel.createResetToken({
+        userId: user.id,
+        tokenHash,
+        otpHash,
+        expiresAt: expiresAtSql,
+    });
+
+    const frontendResetUrl = process.env.FRONTEND_RESET_PASSWORD_URL || "http://localhost:3000/reset-password";
+    const separator = frontendResetUrl.includes("?") ? "&" : "?";
+    const resetLink = `${frontendResetUrl}${separator}token=${encodeURIComponent(rawToken)}`;
+
+    await sendPasswordResetEmail({
+        to: user.email,
+        userName: user.first_name || "User",
+        resetLink,
+        otp,
+        expiresInMinutes,
+    });
+
+    return successResponse;
+};
+
+const resetPassword = async (token, newPassword, otp) => {
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+
+    const resetEntry = await passwordResetModel.findValidResetTokenByHash(tokenHash);
+
+    if (!resetEntry) {
+        throw new Error("Invalid or expired reset token.");
+    }
+
+    if (otp) {
+        const otpHash = crypto.createHash("sha256").update(String(otp)).digest("hex");
+
+        if (!resetEntry.otp_hash || otpHash !== resetEntry.otp_hash) {
+            throw new Error("Invalid OTP.");
+        }
+    }
+
+    const user = await userModel.findUserAuthById(resetEntry.user_id);
+
+    if (!user || user.status !== "active") {
+        throw new Error("User account is not active.");
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.password);
+
+    if (isSamePassword) {
+        throw new Error("New password cannot be same as current password.");
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    const updated = await userModel.updatePasswordById(user.id, hashedPassword);
+
+    if (!updated) {
+        throw new Error("Unable to reset password.");
+    }
+
+    await passwordResetModel.markTokenAsUsed(resetEntry.id);
+    await passwordResetModel.revokeActiveResetTokensForUser(user.id);
+
+    return {
+        message: "Password reset successful.",
+    };
+};
+
 module.exports = {
 
     registerUser,
     loginUser,
-    getProfile
+    getProfile,
+    changePassword,
+    forgotPassword,
+    resetPassword,
 
 };

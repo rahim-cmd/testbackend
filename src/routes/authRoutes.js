@@ -7,7 +7,10 @@ const authenticate = require("../middleware/authMiddleware");
 
 const {
     registerValidation,
-    loginValidation
+    loginValidation,
+    changePasswordValidation,
+    forgotPasswordValidation,
+    resetPasswordValidation,
 } = require("../validators/authValidator");
 
 router.post(
@@ -31,6 +34,25 @@ router.post(
     "/logout",
     authenticate,
     authController.logout
+);
+
+router.post(
+    "/change-password",
+    authenticate,
+    changePasswordValidation,
+    authController.changePassword
+);
+
+router.post(
+    "/forgot-password",
+    forgotPasswordValidation,
+    authController.forgotPassword
+);
+
+router.post(
+    "/reset-password",
+    resetPasswordValidation,
+    authController.resetPassword
 );
 
 module.exports = router;

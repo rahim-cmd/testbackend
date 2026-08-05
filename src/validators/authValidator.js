@@ -52,8 +52,52 @@ const loginValidation = [
 
 ];
 
+const changePasswordValidation = [
+    body("current_password")
+        .notEmpty()
+        .withMessage("Current password is required."),
+
+    body("new_password")
+        .notEmpty()
+        .withMessage("New password is required.")
+        .isLength({ min: 8 })
+        .withMessage("New password must be at least 8 characters long."),
+];
+
+const forgotPasswordValidation = [
+    body("email")
+        .trim()
+        .toLowerCase()
+        .notEmpty()
+        .withMessage("Email is required.")
+        .isEmail()
+        .withMessage("Please enter a valid email address."),
+];
+
+const resetPasswordValidation = [
+    body("token")
+        .trim()
+        .notEmpty()
+        .withMessage("Reset token is required."),
+
+    body("new_password")
+        .notEmpty()
+        .withMessage("New password is required.")
+        .isLength({ min: 8 })
+        .withMessage("New password must be at least 8 characters long."),
+
+    body("otp")
+        .optional()
+        .trim()
+        .isLength({ min: 4, max: 10 })
+        .withMessage("OTP must be between 4 and 10 characters."),
+];
+
 
 module.exports = {
     registerValidation,
-    loginValidation
+    loginValidation,
+    changePasswordValidation,
+    forgotPasswordValidation,
+    resetPasswordValidation,
 };

@@ -18,6 +18,15 @@ const findUserById = async (id) => {
   return rows[0];
 };
 
+const findUserAuthById = async (id) => {
+  const [rows] = await db.execute(
+    "SELECT id, email, password, role, status FROM users WHERE id = ? LIMIT 1",
+    [id]
+  );
+
+  return rows[0];
+};
+
 const createUser = async (user) => {
   const [result] = await db.execute(
     `INSERT INTO users
@@ -100,12 +109,23 @@ const deleteUserById = async (id) => {
   return result.affectedRows > 0;
 };
 
+const updatePasswordById = async (id, hashedPassword) => {
+  const [result] = await db.execute(
+    "UPDATE users SET password = ? WHERE id = ?",
+    [hashedPassword, id]
+  );
+
+  return result.affectedRows > 0;
+};
+
 module.exports = {
   findUserByEmail,
   findUserById,
+  findUserAuthById,
   createUser,
   getAllUsers,
   findUserByEmailExcludingId,
   updateUserById,
+  updatePasswordById,
   deleteUserById,
 };
