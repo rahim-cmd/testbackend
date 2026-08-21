@@ -366,7 +366,7 @@ const forgotPassword = async (email) => {
         expiresAt: expiresAtSql,
     });
 
-    const frontendResetUrl = process.env.FRONTEND_RESET_PASSWORD_URL || "http://localhost:3000/reset-password";
+    const frontendResetUrl = process.env.FRONTEND_RESET_PASSWORD_URL || "https://circlia.uk/reset-password";
     const separator = frontendResetUrl.includes("?") ? "&" : "?";
     const resetLink = `${frontendResetUrl}${separator}token=${encodeURIComponent(rawToken)}`;
 
