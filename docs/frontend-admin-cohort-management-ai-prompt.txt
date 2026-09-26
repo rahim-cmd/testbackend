@@ -1,0 +1,277 @@
+You are building the Admin Dashboard UI for managing "7-Week Journaling & Self-Reflection Cohorts" in this React frontend. All backend APIs already exist and are working — this is a frontend-only task. Do NOT change the visual design system (colors, spacing, typography, shadows, border radius, button styles) — reuse existing DataTable, Modal, ConfirmDialog, StatusBadge, and form components already used on the Admin Circles/Bookings pages.
+
+Base URL
+- http://localhost:5000/api/v1/cohorts
+Auth
+- Every endpoint below marked (Admin) requires header: Authorization: Bearer <admin_token>
+
+-------------------------------------------------------------------
+IMPORTANT CONTEXT — READ FIRST
+-------------------------------------------------------------------
+- "Cohort" is a NEW, SEPARATE feature from "Circle". Circle = old one-off £10 weekly Zoom sessions (single meeting_date/start_time/end_time, admin bookings approve/reject flow). Cohort = the new 7-week, max-6-member paid program with one meeting per week for 7 weeks. Do not merge these two admin pages or reuse Circle components' data shape — build a new "Cohorts" section in the admin nav.
+- A cohort has NO end_date. Instead, each cohort has up to `duration_weeks` (default 7) individual "sessions" (weekly meetings), each with its own session_date + start_time + end_time. Scheduling is done per-session, not as one date range.
+- There is no online payment yet. Admin manually tracks who is enrolled and manually allots seats (from the waitlist or directly by user id/email).
+- Zoom links for cohort sessions are never emailed automatically to members — members see them only on their authenticated dashboard. Admin can force-send one link to one member via a dedicated "send link" action (rare/manual override).
+
+Add a new left-nav item: "Cohorts", with sub-views:
+1) Cohorts list (+ Create Cohort)
+2) Cohort detail page with 3 tabs: Members, Sessions, (link out to) Waitlist
+3) Waitlist page (global, filterable by cohort)
+
+-------------------------------------------------------------------
+1) LIST COHORTS
+-------------------------------------------------------------------
+GET /admin (Admin)
+
+Response 200
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "title": "7-Week Journaling & Self-Reflection Cohort",
+      "description": "A small-group, guided container to pause, reflect, connect and reset.",
+      "price": "175.00",
+      "currency": "GBP",
+      "duration_weeks": 7,
+      "session_duration_minutes": 90,
+      "max_members": 6,
+      "seats_taken": 2,
+      "start_date": "2026-11-02",
+      "session_day": "Monday",
+      "session_time": "18:00:00",
+      "workbook_url": null,
+      "features": ["Weekly 90-minute Zoom sessions", "..."],
+      "status": "open",
+      "seats_available": 4,
+      "is_full": false,
+      "created_at": "2026-09-01T10:00:00.000Z"
+    }
+  ]
+}
+
+UI
+- DataTable columns: Title, Status (badge: draft/open/full/closed), Seats (e.g. "2 / 6"), Start Date, Price, Created At, Actions (View, Edit, Delete).
+- "Create Cohort" button top-right opens the create form (Section 2).
+- Sort newest first (already returned in that order by backend).
+
+-------------------------------------------------------------------
+2) CREATE COHORT
+-------------------------------------------------------------------
+POST /admin (Admin)
+Body
+{
+  "title": "7-Week Journaling & Self-Reflection Cohort",
+  "description": "A small-group, guided container to pause, reflect, connect and reset.",
+  "price": 175,
+  "currency": "GBP",
+  "duration_weeks": 7,
+  "session_duration_minutes": 90,
+  "max_members": 6,
+  "start_date": "2026-11-02",
+  "session_day": "Monday",
+  "session_time": "18:00",
+  "workbook_url": null,
+  "features": [
+    "Weekly 90-minute Zoom sessions",
+    "Maximum 6 women per cohort",
+    "A different theme/topic explored each week"
+  ],
+  "status": "draft"
+}
+
+Field rules (validate client-side to match backend)
+- title: optional, 3-200 chars (has a sensible default server-side if omitted)
+- price: required, number >= 0
+- max_members: optional, int 1-100 (default 6)
+- duration_weeks: optional, int 1-52 (default 7)
+- session_duration_minutes: optional, int 1-480 (default 90)
+- start_date: optional, ISO date (this is the FIRST session's date / cohort kickoff reference only, not an end date)
+- features: optional array of strings (render as a dynamic add/remove list of text inputs)
+- status: one of draft | open | full | closed (default "open")
+
+Response 201
+{ "success": true, "message": "Cohort created successfully.", "data": { ...same shape as list item... } }
+
+UI
+- Form fields as above. "features" as a tag/list input (add feature, remove feature).
+- On success, close modal/navigate to the new cohort's detail page, toast "Cohort created successfully."
+- On 422, map errors[].field to the corresponding input.
+
+-------------------------------------------------------------------
+3) COHORT DETAIL / EDIT / DELETE
+-------------------------------------------------------------------
+GET /admin/:id (Admin) -> same shape as list item, single object in `data`.
+PUT /admin/:id (Admin) -> body: any subset of the create fields above, plus `seats_taken` (int >= 0) for manual seat count correction. Response 200 same shape.
+DELETE /admin/:id (Admin) -> Response 200 { success: true, message: "Cohort deleted successfully." }. Show ConfirmDialog before calling (deleting a cohort cascades to its members/sessions).
+
+UI
+- Detail page header: title, status badge, seats badge ("2/6 seats"), Edit button (opens same form as create, pre-filled), Delete button (with confirm).
+- Below header, tabs: "Members" (Section 5), "Sessions" (Section 6).
+
+-------------------------------------------------------------------
+4) WAITLIST (global page + per-cohort filter)
+-------------------------------------------------------------------
+GET /admin/waitlist?status=&cohort_id= (Admin) — both query params optional
+- status: pending | contacted | converted | cancelled
+- cohort_id: filter to one cohort
+
+Response 200
+{
+  "success": true,
+  "data": [
+    {
+      "id": 8,
+      "cohort_id": 1,
+      "name": "Jane Doe",
+      "email": "jane@example.com",
+      "phone": "+1 555 123 4567",
+      "message": "Would love to join the next cohort.",
+      "status": "pending",
+      "admin_note": null,
+      "created_at": "2026-09-10T09:00:00.000Z",
+      "updated_at": "2026-09-10T09:00:00.000Z"
+    }
+  ]
+}
+
+Already sorted first-come-first-served: backend returns rows ordered by `created_at DESC` — sort ascending (oldest first) in the UI table for clear FCFS priority, or add a visible "Signed up" column sorted oldest-first with a manual sort toggle.
+
+PUT /admin/waitlist/:id/status (Admin)
+Body: { "status": "contacted" | "converted" | "cancelled" | "pending", "admin_note": "optional note, max 1000 chars" }
+Response 200: { success: true, message: "...", data: { id, status } }
+
+UI
+- DataTable columns: Name, Email, Phone, Cohort (title), Message, Status (badge, editable dropdown), Signed Up (created_at), Admin Note, Actions.
+- Status dropdown per row calls PUT .../status immediately (optimistic update + rollback on error).
+- Filter bar: Cohort selector (dropdown of all cohorts), Status selector.
+- Add an "Allot to Cohort" button per row when status != converted -> opens a small dialog to pick target cohort (defaults to the row's cohort_id) and calls the allotment endpoint below with `waitlist_entry_id` set to this row's id. On success, mark this row's status as "converted" in the UI (backend already does this server-side) and refresh seats_taken on the cohort.
+
+-------------------------------------------------------------------
+5) MEMBERS TAB (on Cohort Detail page) — SEAT ALLOTMENT FLOW
+-------------------------------------------------------------------
+This is the "allot seats" flow you asked about. Since there is no online payment, admin decides who fills each of the (max_members) seats, prioritizing the waitlist in signup order (oldest first).
+
+GET /admin/:id/members (Admin)
+Response 200
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "cohort_id": 1,
+      "user_id": 5,
+      "status": "active",
+      "source": "waitlist",
+      "created_at": "2026-09-15T12:00:00.000Z",
+      "first_name": "Jane",
+      "last_name": "Doe",
+      "email": "jane@example.com",
+      "join_enabled": 1,
+      "join_lock_reason": null
+    }
+  ]
+}
+
+POST /admin/:id/members (Admin) — allot a seat
+Body (one of user_id or email is required)
+{ "user_id": 5 }
+or
+{ "email": "jane@example.com" }
+Optional: { "waitlist_entry_id": 8 } — also marks that waitlist entry "converted".
+
+Response 201: { success: true, message: "User allotted to cohort successfully.", data: { id, cohort_id, user_id } }
+Errors (400): "This cohort is already full.", "No registered user found with this email.", "This user is already an active member of this cohort."
+
+PUT /admin/members/:memberId/status (Admin)
+Body: { "status": "active" | "completed" | "cancelled" }
+Response 200: { success: true, message: "...", data: { id, status } }
+Note: setting "cancelled" automatically frees a seat (seats_taken decrements, status reopens if it was "full").
+
+PUT /admin/members/:memberId/join-control (Admin)
+Body: { "is_enabled": true|false, "reason": "optional, max 500 chars" }
+Response 200: { success: true, data: { id, join_enabled } }
+Use this to block/allow one member's Zoom join access across ALL their sessions (e.g. payment issue) without cancelling their membership.
+
+GET /admin/members/:memberId/join-logs (Admin) -> audit list of when member opened/closed sessions from their dashboard. Render as a simple timestamped list in a drawer.
+
+UI — Members tab
+- Top of tab: "Allot Seat" button. Disabled/hidden when seats_available = 0 (cohort full) unless admin explicitly wants to override — if disabled, show tooltip "Cohort is full".
+- Allot Seat dialog: two modes via radio/tabs:
+  a) "From Waitlist" — dropdown/searchable list of pending waitlist entries for THIS cohort_id, sorted oldest first (FCFS). Selecting one pre-fills email and waitlist_entry_id.
+  b) "Manual" — plain email input (or user_id if you have a user search/autocomplete component already, reuse it).
+  Submit -> POST /admin/:id/members. On success, refresh Members table and the cohort header's seats badge.
+- Members DataTable columns: Name, Email, Status (badge, dropdown to change via PUT status), Source (waitlist/manual), Join Access (toggle switch -> PUT join-control), Joined At, Actions (View Join Logs).
+- "View Join Logs" opens a drawer calling GET join-logs.
+
+-------------------------------------------------------------------
+6) SESSIONS TAB (on Cohort Detail page) — WEEKLY MEETING SCHEDULING
+-------------------------------------------------------------------
+This replaces "end date" scheduling: each cohort has up to duration_weeks individual weekly sessions, each with its own date/time. No end_date field exists or is needed.
+
+GET /admin/:id/sessions (Admin)
+Response 200
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "cohort_id": 1,
+      "week_number": 1,
+      "theme": "Foundations",
+      "session_date": "2026-11-02",
+      "start_time": "18:00:00",
+      "end_time": "19:30:00",
+      "zoom_meeting_id": 123456789,
+      "zoom_link": "https://zoom.us/j/...",
+      "zoom_start_url": "https://zoom.us/s/...",
+      "zoom_password": "abc123",
+      "zoom_start_time": "2026-11-02T18:00:00.000Z",
+      "zoom_duration": 90,
+      "created_at": "2026-09-01T10:05:00.000Z"
+    }
+  ]
+}
+
+POST /admin/:id/sessions (Admin) — bulk create all weekly sessions at once
+Body
+{
+  "sessions": [
+    { "week_number": 1, "theme": "Foundations", "session_date": "2026-11-02", "start_time": "18:00", "end_time": "19:30" },
+    { "week_number": 2, "theme": "Deepening", "session_date": "2026-11-09", "start_time": "18:00", "end_time": "19:30" }
+  ]
+}
+Rules: week_number int 1-52, session_date ISO date, start_time/end_time "HH:MM" 24h format, theme optional (max 255 chars). If zoom_link is omitted per session, backend auto-creates a real Zoom meeting for it.
+
+Response 201: { success: true, message: "...", data: [ ...created sessions... ] }
+
+PUT /admin/sessions/:sessionId (Admin) — edit one session
+Body: any subset of { theme, session_date, start_time, end_time } — re-syncs the Zoom meeting automatically if one already exists for that session.
+Response 200: { success: true, data: { ...updated session... } }
+
+POST /admin/sessions/:sessionId/members/:memberId/send-link (Admin)
+Body: { "admin_note": "optional, max 500 chars" }
+Response 200: { success: true, message: "Zoom link sent directly to the member." }
+Use ONLY as a manual override action (e.g. member says they can't find their link) — this is the one and only path that emails a Zoom link.
+
+UI — Sessions tab
+- If no sessions exist yet: show a "Generate Weekly Sessions" button that opens a form pre-populated with `duration_weeks` rows (week_number 1..N), each row has: Theme (text), Session Date (date picker), Start Time, End Time. Prefill dates by adding 7 days per week starting from the cohort's start_date if present. Submit -> POST /admin/:id/sessions (bulk).
+- If sessions exist: show a table/timeline, one row per week: Week #, Theme, Date, Start-End Time, Zoom status (badge: "Link ready" if zoom_link present, else "Pending"), Actions (Edit -> inline or modal calling PUT /admin/sessions/:sessionId, "Send Link to Member" -> opens a small dialog to pick one member from this cohort's Members list and calls the send-link endpoint).
+- Do not render any "end date" field anywhere in this tab — only per-session date/time.
+
+-------------------------------------------------------------------
+7) STATUS BADGES / COLORS (reuse existing StatusBadge component)
+-------------------------------------------------------------------
+Cohort status: draft (grey), open (green), full (amber), closed (red).
+Member status: active (green), completed (blue), cancelled (red).
+Waitlist status: pending (grey), contacted (blue), converted (green), cancelled (red).
+
+-------------------------------------------------------------------
+8) GENERAL UI REQUIREMENTS
+-------------------------------------------------------------------
+1) Confirmation modal before Delete Cohort and before cancelling a member.
+2) Toast/snackbar for every mutation's success/error.
+3) Disable submit buttons while requests are in flight.
+4) Show inline field errors from 422 responses (errors[].field / errors[].message).
+5) Keep API endpoint paths in the existing centralized constants file, not hardcoded per component.
+6) After any seat-affecting action (allot, cancel member, delete cohort), refetch the cohort object so the seats_taken/seats_available badge stays accurate.

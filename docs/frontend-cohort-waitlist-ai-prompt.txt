@@ -1,0 +1,199 @@
+You are updating the marketing/content side of this React frontend to reflect a new offer. Do NOT change the visual design system (colors, spacing, typography, shadows, border radius, button styles) anywhere — this is a content + data-source change only. Do NOT touch the existing "Book a Free 20-Minute Call" feature (react-calendar + /api/v1/call-schedule) — it is already built and must stay exactly as-is.
+
+Base URL
+- http://localhost:5000/api/v1/cohorts
+
+-------------------------------------------------------------------
+CONTEXT / WHAT CHANGED
+-------------------------------------------------------------------
+- The old "£10 weekly Zoom circle" offer is being retired. Stop calling the old circle booking APIs (`/api/v1/circles/upcoming`, `/api/v1/bookings`) anywhere in the public-facing UI (homepage, circles page, etc.). Those backend routes still exist but are no longer used by the public site.
+- The new offer is a "7-Week Journaling & Self-Reflection Cohort" — a paid, small-group (max 6 women), 7-week program. There is no online booking/payment for the cohort itself yet. Instead, the site should present two CTAs:
+  1. "Join the Waitlist" — captures name/email (+ optional phone/message) for the next cohort.
+  2. "Book a Free 20-Minute Call" — already implemented, just link to the existing Contact page call-booking flow.
+
+-------------------------------------------------------------------
+1) GET CURRENT COHORT DETAILS (Public)
+-------------------------------------------------------------------
+Endpoint
+- GET /current
+
+Use this to render the offer content everywhere it appears (homepage section, dedicated cohort/services page) so the price, seat count, and feature list stay in sync with what admin configures — do not hardcode these values in the frontend.
+
+Success Response (200)
+{
+  "success": true,
+  "data": {
+    "id": 1,
+    "title": "7-Week Journaling & Self-Reflection Cohort",
+    "description": "A small-group, guided container to pause, reflect, connect and reset.",
+    "price": "175.00",
+    "currency": "GBP",
+    "duration_weeks": 7,
+    "session_duration_minutes": 90,
+    "max_members": 6,
+    "seats_taken": 2,
+    "start_date": "2026-11-02",
+    "session_day": "Monday",
+    "session_time": "18:00:00",
+    "workbook_url": null,
+    "status": "open",
+    "features": [
+      "Weekly 90-minute Zoom sessions",
+      "Maximum 6 women per cohort",
+      "A different theme/topic explored each week",
+      "Guided deep journaling and self-reflection",
+      "Sharing circle and meaningful group discussion",
+      "Guided reflection questions and journal prompts",
+      "Gentle meditation/grounding practices",
+      "A PDF workbook covering the 7 weeks",
+      "Reflection prompts to use between sessions",
+      "A supportive space to pause, reflect, connect and reset"
+    ],
+    "seats_available": 4,
+    "is_full": false
+  }
+}
+
+If `data` is `null`, there is currently no active cohort configured — hide the cohort section/CTA gracefully (fall back to just showing the waitlist/contact CTA or a "stay tuned" message).
+
+Frontend behavior
+- Render title, price (formatted with `currency`, e.g. "£175"), duration_weeks + session_duration_minutes (e.g. "7 weekly 90-minute sessions"), and the `features` array as a bullet list — reuse whatever bullet/card styling already exists on the page.
+- If `is_full` is true, show "Cohort full — join the waitlist for the next one" instead of any join/buy CTA (there is no purchase flow yet, so always route users to the waitlist or the free call, never a payment button).
+- If `start_date` is present, display it (e.g. "Starts 2 November 2026"); if null, omit that line.
+
+-------------------------------------------------------------------
+2) JOIN THE WAITLIST (Public)
+-------------------------------------------------------------------
+Endpoint
+- POST /waitlist
+Headers
+- Content-Type: application/json
+Body
+{
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "+1 555 123 4567",
+  "message": "Would love to join the next cohort."
+}
+
+Notes
+- name (required, 2-150 chars)
+- email (required, valid email)
+- phone (optional, up to 30 chars)
+- message (optional, up to 1000 chars)
+- cohort_id (optional) — omit it; the backend automatically attaches the signup to the current open cohort.
+
+Success Response (201)
+{
+  "success": true,
+  "message": "You have been added to the waitlist successfully.",
+  "data": { "id": 8, "cohort_id": 1 }
+}
+
+Error Response (422) — validation errors
+{
+  "success": false,
+  "message": "Validation failed.",
+  "errors": [ { "field": "email", "message": "A valid email is required." } ]
+}
+
+Frontend behavior
+- Build a simple "Join the Waitlist" form with Name*, Email*, Phone (optional), Message (optional).
+- On submit, POST to /waitlist.
+- On success, show a confirmation message ("You're on the list! We'll be in touch as soon as the next cohort opens.") and reset the form. The backend automatically emails the admin and sends the user a confirmation email — no extra frontend action needed.
+- On 422, map `errors[].field` to the corresponding input and show inline messages.
+
+-------------------------------------------------------------------
+3) TWO-OPTION LAYOUT (Contact Page / Cohort Section)
+-------------------------------------------------------------------
+Present the two options side by side (or stacked on mobile) using the existing card/button visual language:
+- Option 1: "Join the Waitlist" -> opens/expands the waitlist form (Section 2 above).
+- Option 2: "Book a Free 20-Minute Call" -> the existing react-calendar call-booking flow already built at /api/v1/call-schedule (do not modify).
+
+-------------------------------------------------------------------
+4) HOMEPAGE CONTENT CHANGES ONLY
+-------------------------------------------------------------------
+- Wherever the homepage currently references the weekly £10 circle/session (headline, description, price, CTA copy, "book your spot" button linking to circle booking), replace the copy with the 7-Week Cohort offer content sourced from GET /current (title, price, features), and change the CTA button(s) to point to the two options above (Join Waitlist / Book Free Call) instead of the old circle booking flow.
+- Do not change layout structure, section order, colors, fonts, spacing, or component styling — this is a content/data swap only.
+- Remove any homepage calls to `/api/v1/circles/upcoming` or the old booking submission flow.
+
+-------------------------------------------------------------------
+5) USER DASHBOARD — "MY COHORT" (Auth required)
+-------------------------------------------------------------------
+IMPORTANT SECURITY RULE: Zoom links for cohort sessions are NEVER emailed automatically. A logged-in, enrolled member can only see/join a session's Zoom link from their dashboard. Admin can optionally send a link directly to one member's email as a manual override (see Admin Note below), but the default UI flow must never expose the raw link outside the authenticated dashboard.
+
+Endpoint
+- GET /my
+Headers
+- Authorization: Bearer <user_token>
+
+Success Response (200) — user is enrolled in a cohort
+{
+  "success": true,
+  "data": {
+    "member_id": 1,
+    "status": "active",
+    "join_enabled": true,
+    "join_lock_reason": null,
+    "cohort": {
+      "id": 1,
+      "title": "7-Week Journaling & Self-Reflection Cohort",
+      "description": "A small-group, guided container to pause, reflect, connect and reset.",
+      "start_date": "2026-11-02"
+    },
+    "sessions": [
+      {
+        "id": 1,
+        "week_number": 1,
+        "theme": "Foundations",
+        "session_date": "2026-11-02",
+        "start_time": "18:00",
+        "end_time": "19:30",
+        "can_join": true,
+        "zoom_link": "https://zoom.us/j/...",
+        "zoom_password": null,
+        "join_message": "You can join this session from your dashboard."
+      }
+    ]
+  }
+}
+
+Response (200) with `"data": null` — user is not currently enrolled in any cohort. In that case, hide the "My Cohort" dashboard section entirely (or show a message pointing them to join the waitlist / book a free call).
+
+Frontend behavior
+- Render a "My Cohort" section on the user dashboard listing all 7 weekly sessions (week number, theme, date, time).
+- Show a "Join Session" button only when `can_join` is true and `zoom_link` is present; otherwise show the `join_message` text instead (e.g. "Join access is currently disabled by admin.").
+- When the user clicks "Join Session", call the join/start endpoint below, then open `zoom_link` in a new tab.
+- Never display or copy the Zoom link anywhere outside this authenticated dashboard view (no email, no public page).
+
+Endpoint (log analytics when a user opens/leaves a session from the dashboard — optional but recommended)
+- POST /my/members/:memberId/sessions/:sessionId/join/start
+- POST /my/members/:memberId/sessions/:sessionId/join/end
+Headers
+- Authorization: Bearer <user_token>
+Body: none required.
+
+-------------------------------------------------------------------
+ADMIN NOTE (for reference, if there is an admin dashboard section for this)
+-------------------------------------------------------------------
+Admin-only endpoints (require Authorization: Bearer <admin_token>) to manage the cohort offer and waitlist, in case an admin UI section is needed:
+- POST /admin — create a cohort (body: title, description, price, currency, duration_weeks, session_duration_minutes, max_members, start_date, session_day, session_time, workbook_url, features: string[], status).
+- GET /admin — list all cohorts.
+- GET /admin/:id — get one cohort.
+- PUT /admin/:id — update any field above, including `seats_taken` and `status` (draft/open/full/closed) to manually track enrollment since there is no online payment yet.
+- DELETE /admin/:id — delete a cohort.
+- GET /admin/waitlist?status=&cohort_id= — list waitlist signups (status: pending/contacted/converted/cancelled).
+- PUT /admin/waitlist/:id/status — body: { "status": "contacted" | "converted" | "cancelled" | "pending", "admin_note": "optional note" }. Marking an entry "converted" only updates the waitlist entry — to actually seat them, use the allotment endpoint below.
+
+Member allotment (this is how admin manually enrolls someone — from the waitlist or directly by user id/email — since there is no online payment):
+- POST /admin/:id/members — body: `{ "user_id": 5 }` OR `{ "email": "person@example.com" }`, optionally with `{ "waitlist_entry_id": 8 }` to also mark that waitlist entry as converted. This is how "priority for waitlisted users" is applied in practice: when a cohort fills up, new signups go to the waitlist; when the next cohort is created ~7 weeks later, the admin works down the waitlist list (oldest first) and calls this endpoint for each person to seat them into the new cohort before opening it up publicly.
+- GET /admin/:id/members — list all members of a cohort with join status.
+- PUT /admin/members/:memberId/status — body: `{ "status": "active" | "completed" | "cancelled" }`. Cancelling frees up a seat automatically.
+- PUT /admin/members/:memberId/join-control — body: `{ "is_enabled": true|false, "reason": "optional" }`. Use this to block/allow a specific member's Zoom join access across all sessions (e.g. payment not yet received).
+- GET /admin/members/:memberId/join-logs — audit trail of when the member opened/closed a session from their dashboard.
+
+Session management (the 7 weekly Zoom meetings for a cohort):
+- POST /admin/:id/sessions — body: `{ "sessions": [ { "week_number": 1, "theme": "Foundations", "session_date": "2026-11-02", "start_time": "18:00", "end_time": "19:30" }, ... ] }` for all 7 weeks. If a session's `zoom_link` is omitted, the backend automatically creates a real Zoom meeting for it; you can also pass an explicit `zoom_link` to skip auto-creation.
+- GET /admin/:id/sessions — list all sessions for a cohort.
+- PUT /admin/sessions/:sessionId — update theme/date/time (also re-syncs the Zoom meeting automatically if one exists).
+- POST /admin/sessions/:sessionId/members/:memberId/send-link — body: `{ "admin_note": "optional" }`. Explicitly emails that one member their Zoom link directly. This is the ONLY path that ever sends a Zoom link by email — use it sparingly, e.g. if a member says they can't find it on their dashboard.

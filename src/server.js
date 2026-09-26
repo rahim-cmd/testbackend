@@ -3,6 +3,8 @@ require("dotenv").config();
 const app = require("./app");
 const db = require("./config/db");
 const ensureZoomSchema = require("./config/ensureZoomSchema");
+const ensureCallScheduleSchema = require("./config/ensureCallScheduleSchema");
+const ensureCohortSchema = require("./config/ensureCohortSchema");
 
 const PORT = process.env.PORT || 5000;
 
@@ -11,6 +13,8 @@ async function startServer() {
 
         await db.getConnection();
         await ensureZoomSchema();
+        await ensureCallScheduleSchema();
+        await ensureCohortSchema();
 
         console.log("✅ Database Connected");
 

@@ -1,0 +1,66 @@
+You are building two related admin/frontend features for the Circlia React app. The backend APIs already exist — do not invent new endpoints, use exactly what is documented below.
+
+====================================================================
+PART 1 — COHORT REVIEWS (new, separate from existing circle reviews)
+====================================================================
+
+Context: Circle (1:1 circle event) reviews already exist and are unrelated — do not touch that code. This is a NEW, parallel review type for 7-week COHORT members, backed by a separate `cohort_reviews` table/API.
+
+User-facing (cohort members):
+- POST /api/v1/cohort-reviews/cohorts/:cohortId
+  Auth: Bearer token required. Body: { "rating": 1-5, "review_text": "optional, 5-1500 chars", "is_public": true|false }
+  - Only works if the logged-in user is (or was) a member of that cohort (cohort_members row exists and status isn't "cancelled").
+  - Calling it again updates the same review (upsert) and resets it back to "pending" for re-moderation.
+  - Show this as a "Leave a review" form on the user's cohort dashboard/"My Cohort" page after they've been enrolled — similar UX to how circle bookings show a review form after an approved+attended session.
+
+- GET /api/v1/cohort-reviews/me
+  Auth required. Returns the user's own cohort review(s) with `review_status` (pending/approved/rejected) so they can see moderation state and edit.
+
+- DELETE /api/v1/cohort-reviews/:id
+  Auth required. Lets a user delete their own review.
+
+Public testimonials page:
+- GET /api/v1/testimonials?limit=  (public, no auth) — USE THIS SINGLE ENDPOINT FOR THE MAIN TESTIMONIALS PAGE.
+  It already merges approved+public reviews from BOTH the circle reviews table and the cohort reviews table server-side, sorted newest first. Do not call /reviews/approved and /cohort-reviews/approved separately and merge them yourself — that was tried before and is unnecessary now.
+  Each item shape: { id, source: "circle" | "cohort", rating, review_text, reviewer_name, context_title, created_at, updated_at }.
+  - `context_title` is the circle title or cohort title depending on `source` — show it as a small subtitle/tag under the reviewer name (e.g. "Get Prepared For Public Speaking" or "7-Week Journaling & Self-Reflection Cohort").
+  - `reviewer_name` is already "Anonymous" if the original user account no longer exists — render as-is, no special handling needed.
+  - This endpoint requires no auth and no query params besides optional `limit` (1-200, default 50).
+
+- GET /api/v1/cohort-reviews/approved?limit=&cohort_id= and GET /api/v1/cohort-reviews/homepage?limit=&cohort_id= still exist for cohort-specific widgets (e.g. showing reviews only for one cohort's own landing page) — use these only when you need cohort-only filtering, not for the main testimonials page.
+
+Admin moderation (new "Cohort Reviews" panel, parallel to the existing "Circle Reviews" admin panel — do not merge the two panels, keep them as separate tabs/sections so admin can tell which review type they're moderating):
+- GET /api/v1/cohort-reviews/admin?status=&cohort_id=&limit=
+  Auth: admin only. status filter: pending | approved | rejected. Returns reviewer_name, email, cohort_title, rating, review_text, review_status, moderation_note, created_at.
+- PUT /api/v1/cohort-reviews/:id/moderation
+  Auth: admin only. Body: { "status": "approved" | "rejected", "note": "optional, up to 1000 chars" }
+  Build the same approve/reject buttons + optional note textbox you already have for circle reviews, just pointed at this endpoint and this data set.
+
+Admin also gets an email alert automatically when a new cohort review is submitted (subject "New review submitted for cohort") — no frontend work needed for that, just be aware it's non-blocking and won't affect the review submission response.
+
+====================================================================
+PART 2 — WAITLIST MANAGEMENT PAGE (fixing a real admin usability gap)
+====================================================================
+
+Problem to fix: Waitlist signups currently have NO dedicated place in the admin dashboard. The only place a waitlist entry is visible today is buried inside the "allot member to cohort" dropdown when creating a cohort member — so admin cannot see the full waitlist, cannot see contact details up front, and cannot email/call a person without first opening the allotment flow. This needs its own page.
+
+Build a new admin dashboard page/section: "Waitlist" (e.g. `/admin/waitlist`), using existing endpoints — these already work, just aren't surfaced anywhere in the UI yet:
+
+- GET /api/v1/cohorts/admin/waitlist?status=&cohort_id=
+  Auth: admin only. Returns all waitlist entries: id, cohort_id, name, email, phone, message, status (pending/contacted/converted/cancelled), admin_note, created_at, updated_at.
+
+- PUT /api/v1/cohorts/admin/waitlist/:id/status
+  Auth: admin only. Body: { "status": "pending"|"contacted"|"converted"|"cancelled", "admin_note": "optional, max 1000 chars" }
+
+Page requirements:
+1. Table/list view of all waitlist entries with columns: Name, Email, Phone, Cohort (if any), Message (truncate + expand), Status (colored badge: pending=grey, contacted=blue, converted=green, cancelled=red), Submitted date.
+2. Filters: by status (dropdown) and by cohort (dropdown, optional).
+3. Per-row quick actions so admin never has to "go deeper" to reach a person:
+   - A visible `mailto:` link (or a "Send Email" button opening mail client) using the entry's email, pre-filled with a relevant subject like "Following up on your waitlist signup".
+   - Visible phone number, tappable as `tel:` link for mobile/desktop calling apps.
+   - A status dropdown/select right in the row (or a small action menu) to update status via the PUT endpoint above — no need to navigate elsewhere.
+   - An expandable admin note field (textarea) to add context when changing status.
+4. Add this "Waitlist" page as a top-level nav item in the admin dashboard sidebar (not nested only inside cohort management), so it has equal visibility to Bookings/Reviews/Cohorts.
+5. Keep the existing "allot member" dropdown flow inside cohort management as-is — this new page is additive, not a replacement; allotting a waitlisted person to a cohort should still work exactly like today.
+
+Goal: admin should be able to see every waitlist signup, filter by status, and immediately email/call/update-status them from one screen, without opening the cohort allotment dropdown first.

@@ -1,0 +1,127 @@
+You are building the "Book a Call" feature on the Contact page of this React frontend. The backend already implements availability slots (admin-defined, 20-minute call slots) and call booking (public contact form submissions tied to a slot). react-calendar is already installed in this project — use it to build the date picker.
+
+Base URL
+- http://localhost:5000/api/v1/call-schedule
+
+-------------------------------------------------------------------
+OVERVIEW OF THE FLOW
+-------------------------------------------------------------------
+1. User opens the Contact page.
+2. A calendar (react-calendar) is shown. Only dates that have at least one available slot should be selectable/highlighted.
+3. User selects a month -> frontend calls GET /slots?month=YYYY-MM to fetch which dates in that month have open slots.
+4. User clicks a date -> frontend shows the list of available time slots (20-min each) for that date.
+5. User selects a time slot -> a form appears asking for Name and Email (phone and message are optional).
+6. User submits the form -> frontend calls POST /bookings with the selected slot_id + form values.
+7. On success, show a confirmation message ("Your call request has been received, we'll reach out to you shortly."). The backend also emails the admin and sends a confirmation email to the user automatically — no extra frontend action needed for email.
+
+-------------------------------------------------------------------
+1) GET AVAILABLE DATES + SLOTS FOR A MONTH (Public)
+-------------------------------------------------------------------
+Endpoint
+- GET /slots?month=2026-10
+
+Query Params
+- month (optional, format YYYY-MM). Defaults to current month if omitted.
+
+Success Response (200)
+{
+  "success": true,
+  "data": [
+    {
+      "date": "2026-10-05",
+      "day_of_week": "Monday",
+      "slots": [
+        { "id": 12, "start_time": "10:00", "end_time": "10:20" },
+        { "id": 13, "start_time": "10:20", "end_time": "10:40" }
+      ]
+    },
+    {
+      "date": "2026-10-07",
+      "day_of_week": "Wednesday",
+      "slots": [
+        { "id": 20, "start_time": "15:00", "end_time": "15:20" }
+      ]
+    }
+  ]
+}
+
+Frontend behavior
+- When react-calendar's active month changes (onActiveStartDateChange), call this endpoint with the new month.
+- Use the returned `date` values to mark those tiles on the calendar as "has availability" (e.g. add a dot/highlight class using react-calendar's `tileClassName` or `tileContent` prop).
+- Disable/grey out any date not present in the response and any past date (use react-calendar's `tileDisabled` or `minDate={new Date()}`).
+- When the user clicks a date tile (`onClickDay` / `onChange`), look up that date's `slots` array from the already-fetched month data and render them as selectable time-slot buttons/chips (label: "10:00 - 10:20").
+
+-------------------------------------------------------------------
+2) SUBMIT A CALL BOOKING (Public)
+-------------------------------------------------------------------
+Endpoint
+- POST /bookings
+Headers
+- Content-Type: application/json
+Body
+{
+  "slot_id": 12,
+  "name": "Jane Doe",
+  "email": "jane@example.com",
+  "phone": "+1 555 123 4567",
+  "message": "Would like to discuss membership options."
+}
+
+Notes
+- slot_id (required, integer) — the id of the time slot the user selected.
+- name (required, 2-150 chars)
+- email (required, valid email)
+- phone (optional, up to 30 chars)
+- message (optional, up to 1000 chars)
+
+Success Response (201)
+{
+  "success": true,
+  "message": "Call request submitted successfully.",
+  "data": {
+    "id": 45,
+    "slot_date": "2026-10-05",
+    "day_of_week": "Monday",
+    "start_time": "10:00",
+    "end_time": "10:20",
+    "status": "pending"
+  }
+}
+
+Error Responses
+- 400 — e.g. { "success": false, "message": "Selected time slot is no longer available." }
+  -> This can happen if someone else booked the slot first. Refresh the slot list for that date and ask the user to pick another slot.
+- 422 — validation errors:
+  { "success": false, "message": "Validation failed.", "errors": [ { "field": "email", "message": "A valid email is required." } ] }
+
+Frontend behavior
+- Build the booking form with fields: Name*, Email*, Phone (optional), Message (optional).
+- On submit, POST to /bookings with the selected slot_id plus form values.
+- On 400 (slot no longer available), re-fetch slots for the selected date and show an error toast telling the user to pick another time.
+- On 422, map `errors[].field` to the corresponding input and show inline messages.
+- On success, show a confirmation screen/toast with the booked date/time from `data`, and reset the form/calendar selection.
+
+-------------------------------------------------------------------
+SUGGESTED COMPONENT STRUCTURE
+-------------------------------------------------------------------
+- <BookCallSection> (placed on Contact page)
+  - <Calendar /> (react-calendar) — shows availability, handles month navigation and date selection
+  - <TimeSlotList /> — shown after a date is picked, lists time slot buttons for that date
+  - <CallBookingForm /> — shown after a time slot is picked, collects name/email/phone/message and submits
+
+State to manage
+- currentMonth (string YYYY-MM)
+- monthAvailability (array from GET /slots response)
+- selectedDate (string YYYY-MM-DD)
+- selectedSlotId (number | null)
+- form values + submission/loading/error state
+
+-------------------------------------------------------------------
+ADMIN NOTE (for reference, not required on the public Contact page)
+-------------------------------------------------------------------
+There are also admin-only endpoints (require Authorization: Bearer <admin_token>) for managing availability and viewing/updating call requests, in case there is an admin dashboard section for this:
+- POST /admin/slots — body: { "dates": [ { "date": "2026-10-05", "times": ["10:00", "10:20", "11:00"] } ] } — creates 20-min slots for each given date/time.
+- GET /admin/slots?month=YYYY-MM&status=available|booked|cancelled — list slots with booking info.
+- DELETE /admin/slots/:id — delete an unbooked slot.
+- GET /admin/bookings?status=pending|confirmed|cancelled|completed — list all call requests.
+- PUT /admin/bookings/:id/status — body: { "status": "confirmed" | "cancelled" | "completed", "admin_note": "optional note" } — update a call request status (cancelling automatically frees the slot back up for booking).

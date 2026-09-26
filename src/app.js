@@ -32,6 +32,10 @@ const userRoutes = require("./routes/userRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const zoomRoutes = require("./routes/zoomRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const callScheduleRoutes = require("./routes/callScheduleRoutes");
+const cohortRoutes = require("./routes/cohortRoutes");
+const cohortReviewRoutes = require("./routes/cohortReviewRoutes");
+const testimonialRoutes = require("./routes/testimonialRoutes");
 
 app.use("/api/v1/health", healthRoutes);
 app.use("/api/v1/auth", authRoutes);
@@ -40,6 +44,10 @@ app.use("/api/v1/bookings", bookingRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/zoom", zoomRoutes);
 app.use("/api/v1/reviews", reviewRoutes);
+app.use("/api/v1/call-schedule", callScheduleRoutes);
+app.use("/api/v1/cohorts", cohortRoutes);
+app.use("/api/v1/cohort-reviews", cohortReviewRoutes);
+app.use("/api/v1/testimonials", testimonialRoutes);
 
 // Backward-compatible route aliases for legacy frontend paths.
 app.use("/api/bookings", bookingRoutes);

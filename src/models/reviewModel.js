@@ -95,7 +95,7 @@ const getMyReviews = async (userId) => {
             c.start_time,
             c.end_time
          FROM booking_reviews br
-         INNER JOIN circle_events c ON c.id = br.circle_id
+         LEFT JOIN circle_events c ON c.id = br.circle_id
          WHERE br.user_id = ?
          ORDER BY br.updated_at DESC`,
         [userId]
@@ -129,8 +129,8 @@ const getHomepageReviews = async ({ limit, circleId = null }) => {
             u.first_name,
             u.last_name
          FROM booking_reviews br
-         INNER JOIN users u ON u.id = br.user_id
-         INNER JOIN circle_events c ON c.id = br.circle_id
+         LEFT JOIN users u ON u.id = br.user_id
+         LEFT JOIN circle_events c ON c.id = br.circle_id
          ${whereClause}
          ORDER BY br.updated_at DESC
          LIMIT ?`,
@@ -168,8 +168,8 @@ const getApprovedReviews = async ({ limit, circleId = null }) => {
             u.first_name,
             u.last_name
          FROM booking_reviews br
-         INNER JOIN users u ON u.id = br.user_id
-         INNER JOIN circle_events c ON c.id = br.circle_id
+         LEFT JOIN users u ON u.id = br.user_id
+         LEFT JOIN circle_events c ON c.id = br.circle_id
          ${whereClause}
          ORDER BY br.updated_at DESC
          LIMIT ${parsedLimit}`,
@@ -214,8 +214,8 @@ const getReviewById = async (reviewId) => {
             c.title AS circle_title,
             c.meeting_date
          FROM booking_reviews br
-         INNER JOIN users u ON u.id = br.user_id
-         INNER JOIN circle_events c ON c.id = br.circle_id
+         LEFT JOIN users u ON u.id = br.user_id
+         LEFT JOIN circle_events c ON c.id = br.circle_id
          WHERE br.id = ?
          LIMIT 1`,
         [reviewId]
@@ -266,8 +266,8 @@ const getAdminReviews = async ({ status = null, circleId = null, limit = 50 }) =
             c.title AS circle_title,
             c.meeting_date
          FROM booking_reviews br
-         INNER JOIN users u ON u.id = br.user_id
-         INNER JOIN circle_events c ON c.id = br.circle_id
+         LEFT JOIN users u ON u.id = br.user_id
+         LEFT JOIN circle_events c ON c.id = br.circle_id
          ${whereClause}
          ORDER BY br.updated_at DESC
          LIMIT ${parsedLimit}`,
