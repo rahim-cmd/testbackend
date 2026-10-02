@@ -100,7 +100,7 @@ const getHomepageReviews = async ({ limit, cohortId = null }) => {
 
 const getApprovedReviews = async ({ limit, cohortId = null }) => {
     const queryParams = [];
-    let whereClause = "WHERE cr.review_status = 'approved' AND cr.is_public = 1";
+    let whereClause = "WHERE cr.review_status = 'approved'";
     const parsedLimit = Number.isInteger(Number(limit))
         ? Math.min(Math.max(Number(limit), 1), 200)
         : 50;
