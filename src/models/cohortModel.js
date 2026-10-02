@@ -74,12 +74,33 @@ const updateCohort = async (cohortId, updates) => {
 };
 
 const deleteCohort = async (cohortId) => {
-    const [result] = await db.execute(
-        `DELETE FROM cohorts WHERE id = ?`,
-        [cohortId]
-    );
+    const connection = await db.getConnection();
 
-    return result.affectedRows > 0;
+    try {
+        await connection.beginTransaction();
+        await connection.execute(
+            `DELETE FROM cohort_sessions WHERE cohort_id = ?`,
+            [cohortId]
+        );
+
+        const [result] = await connection.execute(
+            `DELETE FROM cohorts WHERE id = ?`,
+            [cohortId]
+        );
+
+        if (result.affectedRows === 0) {
+            await connection.rollback();
+            return false;
+        }
+
+        await connection.commit();
+        return true;
+    } catch (error) {
+        await connection.rollback();
+        throw error;
+    } finally {
+        connection.release();
+    }
 };
 
 module.exports = {
